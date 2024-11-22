@@ -2,7 +2,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='bactopiaQCtools',
+    name='bactQC',
     version='0.1',
     packages=find_packages(),
     author='Your Name',
@@ -12,10 +12,11 @@ setup(
     install_requires=[
         'pandas',
         'requests',
+        'click'
     ],
     entry_points={
         'console_scripts': [
-            'bqc = bactopiaQCtools.cli:main',
+            'bactQC = bactQC.cli:main',
         ],
     },
     classifiers=[
