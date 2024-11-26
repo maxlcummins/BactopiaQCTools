@@ -91,6 +91,9 @@ def run(sample_name, input_dir, taxid):
     results = qc.get_qc_results()
     for key, value in results.items():
         click.echo(f"{key}: {value}")
+    thresholds = qc.get_qc_thresholds()
+    for key, value in thresholds.items():
+        click.echo(f"{key}: {value}")
 
 # Add commands to the CLI group
 cli.add_command(get_expected_genome_size)

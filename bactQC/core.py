@@ -11,8 +11,9 @@ class Genome:
         self.sample_name = sample_name
         self.input_dir = input_dir
         self.taxid = str(taxid) if taxid is not None else None
-        self.qc_data = {}
-        self.qc_results = {}
+        self.qc_data = {'sample': sample_name}
+        self.qc_results = {'sample': sample_name}
+        self.qc_requirements = {'sample': sample_name}
 
     def get_expected_genome_size(self):
         """
@@ -79,6 +80,7 @@ class Genome:
 
         self.qc_data['assembly_size'] = {'total_length': total_length}
         
+        
     def check_bracken_results(self, min_primary_abundance=0.80):
         """
         Check Bracken results for a given sample.
@@ -119,7 +121,9 @@ class Genome:
 
         self.qc_data['bracken'] = bracken_result
         
-        self.qc_results['bracken'] = bracken_result['passed_bracken_QC']
+        self.qc_results['Passed bracken'] = bracken_result['passed_bracken_QC']
+        
+        self.qc_requirements['bracken'] = {'min_primary_abundance': min_primary_abundance}
 
     def check_mlst_results(self, expected_genus):
         """
@@ -163,9 +167,11 @@ class Genome:
 
         self.qc_data['mlst'] = mlst_result
                 
-        self.qc_results['mlst'] = mlst_result['passed_mlst']
+        self.qc_results['Passed mlst'] = mlst_result['passed_mlst']
+        
+        self.qc_requirements['mlst']= {'expected_genus': expected_genus}
 
-    def check_checkm_results(self, min_completeness=0.80, max_contamination=10):
+    def check_checkm_results(self, min_completeness=80, max_contamination=10):
         """
         Checks CheckM results for a given sample and evaluates quality metrics.
 
@@ -221,8 +227,10 @@ class Genome:
 
         self.qc_data['checkm'] = checkm_result
         
+        self.qc_results['Passed checkm'] = checkm_result['passed_checkm_QC']
         
-        self.qc_results['checkm'] = checkm_result['passed_checkm_QC']
+        self.qc_requirements['checkm'] = {'max_contamination': max_contamination,
+                                          'min_completeness': min_completeness}
 
     def check_assembly_scan_results(self, maximum_contigs=500, minimum_N50=15000):
         """
@@ -254,8 +262,8 @@ class Genome:
         assembly_scan_results.update(data)
 
         # Calculate acceptable genome size range
-        min_length = data['minimum_ungapped_length'] * 0.8
-        max_length = data['maximum_ungapped_length'] * 1.2
+        min_length = data['minimum_ungapped_length'] * 0.95
+        max_length = data['maximum_ungapped_length'] * 1.05
         total_length = assembly_scan_results['total_contig_length']
 
         assembly_scan_results['passed_genome_size'] = (total_length > min_length) and (total_length < max_length)
@@ -267,9 +275,14 @@ class Genome:
 
         self.qc_data['assembly_scan'] = assembly_scan_results
         
-        self.qc_results['assembly_scan'] = assembly_scan_results['passed_assembly_scan']
+        self.qc_results['Passed assembly_scan'] = assembly_scan_results['passed_assembly_scan']
+        
+        self.qc_requirements['assembly_scan'] = {'maximum_contigs': maximum_contigs,
+                                                 'minimum_N50': minimum_N50,
+                                                 'minimum_ungapped_length': min_length,
+                                                 'maximum_ungapped_length': max_length}
 
-    def check_fastp_data(self, min_q30_bases=0.80, min_coverage=30):
+    def check_fastp_data(self, min_q30_bases=0.90, min_coverage=30):
         """
         Checks fastp quality control data for a given sample.
 
@@ -319,7 +332,10 @@ class Genome:
 
         self.qc_data['fastp'] = fastp_results
         
-        self.qc_results['fastp'] = fastp_results['passed_fastp_QC']
+        self.qc_results['Passed fastp'] = fastp_results['passed_fastp_QC']
+        
+        self.qc_requirements['fastp'] = {'min_q30_bases': min_q30_bases,
+                                         'min_coverage': min_coverage}
 
     def run(self):
         """
@@ -340,8 +356,25 @@ class Genome:
         """
         Returns the quality control results.
         """
+        # Create a DataFrame from the qc_results dictionary
+        results_df = pd.DataFrame.from_dict(self.qc_results, orient='index')
+        
+        # Transpose the DataFrame
+        results_df = results_df.T
+
+        # Write the results to file
+        results_df.to_csv(f"{self.sample_name}_qc_results.tsv", sep='\t')
+        
         # Return pass or fail for each QC check
         return self.qc_results
+    
+    def get_qc_thresholds(self):
+        """
+        Returns the quality control results.
+        """
+        # Return requirements for each QC check
+        print('\n\tQC Requirements:')
+        return self.qc_requirements
         
         
 
