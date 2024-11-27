@@ -3,9 +3,9 @@ from setuptools import setup, find_packages
 
 setup(
     name='bactQC',
-    version='0.1',
+    version='0.0.2',
     packages=find_packages(),
-    author='Your Name',
+    author='Max Cummins',
     author_email='max.l.cummins@gmail.com',
     description='A package for bacterial genome quality control of bactopia outputs',
     url='https://github.com/maxlcummins/bactopiaQCtools',
