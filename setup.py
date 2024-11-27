@@ -13,7 +13,8 @@ setup(
         'pandas',
         'requests',
         'click',
-        'emoji'
+        'emoji',
+        'rich'
     ],
     entry_points={
         'console_scripts': [
