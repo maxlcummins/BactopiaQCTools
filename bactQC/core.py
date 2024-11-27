@@ -21,7 +21,7 @@ class Genome:
         self.qc_results = {'sample': sample_name}
         self.qc_requirements = {'sample': sample_name}
         
-    def run(self):
+    def run(self, taxid=None, min_primary_abundance=0.80, min_completeness=80, max_contamination=10, maximum_contigs=500, minimum_n50=15000, min_q30_bases=0.90, min_coverage=30):
         """
         Run all quality control checks for the sample.
 
@@ -311,7 +311,7 @@ class Genome:
             'min_completeness': min_completeness
         }
 
-    def check_assembly_scan(self, maximum_contigs=500, minimum_N50=15000):
+    def check_assembly_scan(self, maximum_contigs=500, minimum_n50=15000):
         """
         Check the quality of assembly scan results for a given sample.
 
@@ -341,7 +341,7 @@ class Genome:
 
         # Add QC pass/fail flags
         assembly_scan_results['passed_contigs'] = assembly_scan_results['total_contig'] < maximum_contigs
-        assembly_scan_results['passed_N50'] = assembly_scan_results['n50_contig_length'] > minimum_N50
+        assembly_scan_results['passed_N50'] = assembly_scan_results['n50_contig_length'] > minimum_n50
         assembly_scan_results.update(data)
 
         # Calculate acceptable genome size range
@@ -362,7 +362,7 @@ class Genome:
         
         self.qc_requirements['assembly_scan'] = {
             'maximum_contigs': maximum_contigs,
-            'minimum_N50': minimum_N50,
+            'minimum_n50': minimum_n50,
             'minimum_ungapped_length': min_length,
             'maximum_ungapped_length': max_length
         }

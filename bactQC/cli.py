@@ -33,7 +33,14 @@ def cli():
 @click.argument('sample_name')
 @click.argument('input_dir')
 @click.option('--taxid', default=None, help='Taxonomy ID of the species.')
-def run(sample_name, input_dir, taxid):
+@click.option('--min_primary_abundance', default=0.80, help='Minimum required abundance for the primary species.')
+@click.option('--min_completeness', default=80, help='Minimum required completeness threshold.')
+@click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
+@click.option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
+@click.option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
+@click.option('--min_q30_bases', default=0.90, help='Minimum required proportion of Q30 bases after filtering.')
+@click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
+def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage):
     """Run all quality control checks for a sample."""
     # Initialize Genome object from core.py
     qc = Genome(sample_name, input_dir, taxid)
@@ -253,7 +260,7 @@ def check_mlst(sample_name, input_dir):
 @cli.command()
 @click.argument('sample_name')
 @click.argument('input_dir')
-@click.option('--min_completeness', default=0.80, help='Minimum required completeness threshold.')
+@click.option('--min_completeness', default=80, help='Minimum required completeness threshold.')
 @click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
 def check_checkm(sample_name, input_dir, min_completeness, max_contamination):
     """Check CheckM results for a sample."""
