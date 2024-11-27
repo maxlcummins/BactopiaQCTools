@@ -46,17 +46,26 @@ class Genome:
 
         if self.taxid is None:
             bracken_path = os.path.join(self.input_dir, self.sample_name, 'tools', 'bracken', f"{self.sample_name}.bracken.adjusted.abundances.txt")
+            if not os.path.isfile(bracken_path):
+                raise FileNotFoundError(f"Bracken abundance file not found at {bracken_path}")
             bracken_result = pd.read_csv(bracken_path, sep='\t')
+            if bracken_result.empty:
+                raise ValueError(f"Bracken abundance file at {bracken_path} is empty.")
             self.taxid = str(bracken_result.iloc[0]['taxonomy_id'])
             guessed_species_name = bracken_result.iloc[0]['name']
         else:
             self.taxid = str(self.taxid)
 
         url = f"{base_URL}{self.taxid}"
-        response = requests.get(url)
+        try:
+            response = requests.get(url)
+            response.raise_for_status()
+        except requests.RequestException as e:
+            logger.error(f"Error fetching genome size data: {e}")
+            raise
 
         data = {}
-        
+
         if response.content:
             try:
                 root = ET.fromstring(response.content)
@@ -68,13 +77,15 @@ class Genome:
                     'maximum_ungapped_length': int(root.findtext('maximum_ungapped_length'))
                 }
             except ET.ParseError as e:
-                print(f"Error parsing XML for taxid {self.taxid}: {e}")
+                logger.error(f"Error parsing XML for taxid {self.taxid}: {e}")
+                raise
         else:
-            print(f"No content returned for taxid {self.taxid}")
-        if data:
+            logger.warning(f"No content returned for taxid {self.taxid}")
+
+        if data and data.get('organism_name'):
             self.qc_data['genome_size'] = data
         else:
-            raise ValueError(f"Failed to retrieve genome size for taxid {self.taxid}")
+            raise ValueError(f"Failed to retrieve genome size for taxid {self.taxid}. 'organism_name' is missing.")
 
     def get_assembly_size(self):
         """
@@ -135,11 +146,13 @@ class Genome:
         has_secondary_species  = bracken_result['bracken_secondary_species'] != 'No secondary abundance > 1%'
 
         # Check if our primary and secondary genera are Escherichia and Shigella (in either order)
-        is_ecoli_or_shigella  = {'Escherichia', 'Shigella'} == {bracken_result['bracken_primary_species'], bracken_result['bracken_secondary_species']}
+        primary_genus = bracken_result['bracken_primary_species'].split()[0] if bracken_result['bracken_primary_species'] else ''
+        secondary_genus = bracken_result['bracken_secondary_species'].split()[0] if bracken_result['bracken_secondary_species'] else ''
+        is_ecoli_or_shigella  = {'Escherichia', 'Shigella'} == {primary_genus, secondary_genus}
 
         # Determine if there is a conflict in the genera detected
         if has_secondary_species and is_ecoli_or_shigella:
-            bracken_result['genus_conflict'] = bracken_result['bracken_primary_species'].split()[0] != bracken_result['bracken_secondary_species'].split()[0]
+            bracken_result['genus_conflict'] = primary_genus != secondary_genus
         else:
             bracken_result['genus_conflict'] = False
 
@@ -149,12 +162,33 @@ class Genome:
         
         self.qc_requirements['bracken'] = {'min_primary_abundance': min_primary_abundance}
 
-    def check_mlst(self, expected_genus):
+    def check_mlst(self, expected_genus=None):
         """
         Check MLST results for a given sample.
 
+        If expected_genus is not provided, derive it from genome_size.
+
         Updates self.qc_data['mlst'] with the results.
         """
+        # If expected_genus is not provided, derive it from genome_size
+        if expected_genus is None:
+            organism_name = self.qc_data.get('genome_size', {}).get('organism_name', None)
+            if organism_name:
+                expected_genus = organism_name.split()[0]
+                logger.info(f"Derived expected_genus from genome_size: {expected_genus}")
+            else:
+                # Attempt to retrieve genome_size if not already done
+                try:
+                    self.get_expected_genome_size()
+                    organism_name = self.qc_data.get('genome_size', {}).get('organism_name', None)
+                    if organism_name:
+                        expected_genus = organism_name.split()[0]
+                        logger.info(f"Derived expected_genus from genome_size after fetching: {expected_genus}")
+                    else:
+                        raise ValueError
+                except Exception:
+                    raise ValueError("Organism name not found in genome_size data to derive expected_genus.")
+
         # Get the file path
         file_path = os.path.join(self.input_dir, self.sample_name, 'tools', 'mlst', f"{self.sample_name}.tsv")
         
@@ -168,14 +202,8 @@ class Genome:
         # Define the column names
         mlst_result.columns = ['sample', 'scheme', 'ST', 'allele1', 'allele2', 'allele3', 'allele4', 'allele5', 'allele6', 'allele7']
 
-        # Remove '.fna.gz' or '.fna' from the sample column
-        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fna(\.gz)?$', '', regex=True)
-        
-        #Remove '.fasta.gz' or '.fasta' from the sample column
-        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fasta(\.gz)?$', '', regex=True)
-        
-        #Remove '.fna.gz' or '.fna' from the sample column
-        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fa(\.gz)?$', '', regex=True)
+        # Remove file extensions from the sample column
+        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.(fna|fasta|fa)(\.gz)?$', '', regex=True)
 
         # Check that mlst_result has only one row
         if mlst_result.shape[0] != 1:
@@ -184,22 +212,32 @@ class Genome:
         # Download the scheme species map if necessary
         cache_file = os.path.join(self.input_dir, 'scheme_species_map.tab')
         if not os.path.exists(cache_file):
-            scheme_species_map = pd.read_csv('https://raw.githubusercontent.com/tseemann/mlst/master/db/scheme_species_map.tab', sep='\t')
-            scheme_species_map.to_csv(cache_file, sep='\t', index=False)
+            try:
+                scheme_species_map = pd.read_csv('https://raw.githubusercontent.com/tseemann/mlst/master/db/scheme_species_map.tab', sep='\t')
+                scheme_species_map.to_csv(cache_file, sep='\t', index=False)
+                logger.info("Downloaded and cached scheme_species_map.tab")
+            except Exception as e:
+                logger.error(f"Error downloading scheme_species_map.tab: {e}")
+                raise
         else:
             scheme_species_map = pd.read_csv(cache_file, sep='\t')
+            logger.info("Loaded cached scheme_species_map.tab")
 
         # Filter the dataframe to only the expected genus
-        scheme_species_map = scheme_species_map[scheme_species_map['GENUS'] == expected_genus]
-
+        filtered_schemes = scheme_species_map[scheme_species_map['GENUS'] == expected_genus]
+        if filtered_schemes.empty:
+            logger.warning(f"No schemes found for genus '{expected_genus}' in scheme_species_map.tab")
+        
         # Check if the scheme in mlst result partially matches with one or more schemes for the expected genus
-        if not any(mlst_result['scheme'].str.contains('|'.join(scheme_species_map['#SCHEME']))):
+        matched_schemes = '|'.join(filtered_schemes['#SCHEME'].astype(str).unique())
+        if matched_schemes and any(mlst_result['scheme'].str.contains(matched_schemes)):
+            # Set mlst_result['passed_mlst'] to True
+            mlst_result['passed_mlst'] = True
+            logger.info("MLST scheme matches the expected genus schemes.")
+        else:
             # Set mlst_result['passed_mlst'] to False
             mlst_result['passed_mlst'] = False
-        else:
-            # Set mlst_result['passed_mlst'] to True
-
-            mlst_result['passed_mlst'] = True
+            logger.warning("MLST scheme does not match the expected genus schemes.")
 
         # Take the first row and convert it to a dictionary after dropping the 'sample' column
         mlst_result = mlst_result.iloc[0].drop('sample').to_dict()
@@ -208,7 +246,7 @@ class Genome:
                 
         self.qc_results['mlst'] = mlst_result['passed_mlst']
         
-        self.qc_requirements['mlst']= {'expected_genus': expected_genus}
+        self.qc_requirements['mlst'] = {'expected_genus': expected_genus}
 
     def check_checkm(self, min_completeness=80, max_contamination=10):
         """
@@ -225,7 +263,7 @@ class Genome:
 
         # Check that we found at least one checkm.tsv file
         if len(checkm_files) == 0:
-            raise ValueError(f"Bracken data not found at {file_path}")
+            raise ValueError(f"CheckM data not found in any 'checkm.tsv' files within '{self.input_dir}'")
 
         # Determine the most recent checkm.tsv file based on the timestamp name of directory two levels up
         checkm_files = sorted(checkm_files, key=lambda x: os.path.basename(os.path.dirname(os.path.dirname(x))))
@@ -268,8 +306,10 @@ class Genome:
         
         self.qc_results['checkm'] = checkm_result['passed_checkm_QC']
         
-        self.qc_requirements['checkm'] = {'max_contamination': max_contamination,
-                                          'min_completeness': min_completeness}
+        self.qc_requirements['checkm'] = {
+            'max_contamination': max_contamination,
+            'min_completeness': min_completeness
+        }
 
     def check_assembly_scan(self, maximum_contigs=500, minimum_N50=15000):
         """
@@ -305,8 +345,8 @@ class Genome:
         assembly_scan_results.update(data)
 
         # Calculate acceptable genome size range
-        min_length = data['minimum_ungapped_length'] * 0.95
-        max_length = data['maximum_ungapped_length'] * 1.05
+        min_length = data['minimum_ungapped_length']
+        max_length = data['maximum_ungapped_length']
         total_length = assembly_scan_results['total_contig_length']
 
         assembly_scan_results['passed_genome_size'] = (total_length > min_length) and (total_length < max_length)
@@ -320,10 +360,12 @@ class Genome:
         
         self.qc_results['assembly_scan'] = assembly_scan_results['passed_assembly_scan']
         
-        self.qc_requirements['assembly_scan'] = {'maximum_contigs': maximum_contigs,
-                                                 'minimum_N50': minimum_N50,
-                                                 'minimum_ungapped_length': min_length,
-                                                 'maximum_ungapped_length': max_length}
+        self.qc_requirements['assembly_scan'] = {
+            'maximum_contigs': maximum_contigs,
+            'minimum_N50': minimum_N50,
+            'minimum_ungapped_length': min_length,
+            'maximum_ungapped_length': max_length
+        }
 
     def check_fastp(self, min_q30_bases=0.90, min_coverage=30):
         """
@@ -340,21 +382,25 @@ class Genome:
             raise FileNotFoundError(f"Fastp data not found at {file_path}")
         
         # Read the JSON file
-        with open(file_path, 'r') as file:
-            data = json.load(file)
+        try:
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error decoding JSON from {file_path}: {e}")
+            raise
 
-            # Create a dictionary with the name as a single-element list and set it as the index
-            fastp_results = {}
-
-            fastp_results['pre_filt_total_reads'] = int(data['summary']['before_filtering']['total_reads'])
-            fastp_results['pre_filt_total_bases'] = int(data['summary']['before_filtering']['total_bases'])
-            fastp_results['pre_filt_q30_rate'] = float(data['summary']['before_filtering']['q30_rate'])
-            fastp_results['pre_filt_gc'] = float(data['summary']['before_filtering']['gc_content'])
-            fastp_results['post_filt_total_reads'] = int(data['summary']['after_filtering']['total_reads'])
-            fastp_results['post_filt_total_bases'] = int(data['summary']['after_filtering']['total_bases'])
-            fastp_results['post_filt_q20_rate'] = float(data['summary']['after_filtering']['q20_rate'])
-            fastp_results['post_filt_q30_rate'] = float(data['summary']['after_filtering']['q30_rate'])
-            fastp_results['post_filt_gc'] = float(data['summary']['after_filtering']['gc_content'])
+        # Create a dictionary with relevant metrics
+        fastp_results = {
+            'pre_filt_total_reads': int(data['summary']['before_filtering']['total_reads']),
+            'pre_filt_total_bases': int(data['summary']['before_filtering']['total_bases']),
+            'pre_filt_q30_rate': float(data['summary']['before_filtering']['q30_rate']),
+            'pre_filt_gc': float(data['summary']['before_filtering']['gc_content']),
+            'post_filt_total_reads': int(data['summary']['after_filtering']['total_reads']),
+            'post_filt_total_bases': int(data['summary']['after_filtering']['total_bases']),
+            'post_filt_q20_rate': float(data['summary']['after_filtering']['q20_rate']),
+            'post_filt_q30_rate': float(data['summary']['after_filtering']['q30_rate']),
+            'post_filt_gc': float(data['summary']['after_filtering']['gc_content']),
+        }
 
         # Ensure assembly size is available
         if 'assembly_size' not in self.qc_data:
@@ -366,7 +412,7 @@ class Genome:
         coverage = fastp_results['post_filt_total_bases'] / assembly_size['total_length']
 
         # Add the coverage to the dictionary
-        fastp_results['coverage'] = int(coverage)
+        fastp_results['coverage'] = round(coverage, 2)
 
         # Add a boolean for whether the Q30 bases are greater than min_q30_bases
         fastp_results['passed_q30_bases'] = fastp_results['post_filt_q30_rate'] > min_q30_bases
@@ -381,39 +427,42 @@ class Genome:
         
         self.qc_results['fastp'] = fastp_results['passed_fastp_QC']
         
-        self.qc_requirements['fastp'] = {'min_q30_bases': min_q30_bases,
-                                         'min_coverage': min_coverage}
+        self.qc_requirements['fastp'] = {
+            'min_q30_bases': min_q30_bases,
+            'min_coverage': min_coverage
+        }
 
     def get_qc_results(self):
         """
         Returns the quality control results.
+
+        Creates a TSV file with the QC results.
         """
         # Create a DataFrame from the qc_results dictionary
-        results_df = pd.DataFrame.from_dict(self.qc_results, orient='index')
-        
-        # Transpose the DataFrame
-        results_df = results_df.T
+        results_df = pd.DataFrame.from_dict(self.qc_results, orient='index', columns=['Status']).T
         
         # Add columns for detected species
-        results_df['Detected species (Bracken)'] = self.qc_data['bracken']['bracken_primary_species']
-        results_df['Detected species (Mash)'] = self.qc_data['genome_size']['organism_name']
+        bracken_species = self.qc_data.get('bracken', {}).get('bracken_primary_species', 'N/A')
+        mash_species = self.qc_data.get('genome_size', {}).get('organism_name', 'N/A')
+        results_df['Detected species (Bracken)'] = bracken_species
+        results_df['Detected species (Mash)'] = mash_species
 
-        # Change column order
-        results_df = results_df[['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp']]
+        # Reorder columns
+        desired_order = ['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp']
+        results_df = results_df.reindex(columns=desired_order)
 
         # Write the results to file
-        results_df.to_csv(f"{self.sample_name}_qc_results.tsv", sep='\t')
+        results_df.to_csv(f"{self.sample_name}_qc_results.tsv", sep='\t', index=False)
         
         # Return pass or fail for each QC check
         return self.qc_results
-    
+
     def get_qc_thresholds(self):
         """
-        Returns the quality control results.
+        Returns the quality control thresholds.
         """
         # Return requirements for each QC check
         return self.qc_requirements
-        
         
 
 # Define __all__ for explicit exports
