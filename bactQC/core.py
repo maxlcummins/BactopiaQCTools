@@ -361,6 +361,13 @@ class Genome:
         
         # Transpose the DataFrame
         results_df = results_df.T
+        
+        # Add columns for detected species
+        results_df['Detected species (Bracken)'] = self.qc_data['bracken']['bracken_primary_species']
+        results_df['Detected species (Mash)'] = self.qc_data['genome_size']['organism_name']
+
+        # Change column order
+        results_df = results_df[['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'Passed bracken', 'Passed mlst', 'Passed checkm', 'Passed assembly_scan', 'Passed fastp']]
 
         # Write the results to file
         results_df.to_csv(f"{self.sample_name}_qc_results.tsv", sep='\t')
