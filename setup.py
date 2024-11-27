@@ -12,7 +12,8 @@ setup(
     install_requires=[
         'pandas',
         'requests',
-        'click'
+        'click',
+        'emoji'
     ],
     entry_points={
         'console_scripts': [

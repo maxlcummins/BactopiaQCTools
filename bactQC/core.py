@@ -5,6 +5,12 @@ import pandas as pd
 import requests
 import xml.etree.ElementTree as ET
 import json
+import logging
+import re
+
+# Configure logging at the module level
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class Genome:
     def __init__(self, sample_name, input_dir, taxid=None):
@@ -14,6 +20,21 @@ class Genome:
         self.qc_data = {'sample': sample_name}
         self.qc_results = {'sample': sample_name}
         self.qc_requirements = {'sample': sample_name}
+        
+    def run(self):
+        """
+        Run all quality control checks for the sample.
+
+        Populates self.qc_data with the results.
+        """
+        self.get_expected_genome_size()
+        self.get_assembly_size()
+        self.check_bracken()
+        expected_genus = self.qc_data['genome_size']['organism_name'].split()[0]
+        self.check_mlst(expected_genus)
+        self.check_checkm()
+        self.check_assembly_scan()
+        self.check_fastp()
 
     def get_expected_genome_size(self):
         """
@@ -24,20 +45,18 @@ class Genome:
         base_URL = "https://api.ncbi.nlm.nih.gov/genome/v0/expected_genome_size/expected_genome_size?species_taxid="
 
         if self.taxid is None:
-            print(f"\n")
-            print(f"Expected species not provided, guessing species based on bracken data for {self.sample_name} - make sure you have generated it!")
             bracken_path = os.path.join(self.input_dir, self.sample_name, 'tools', 'bracken', f"{self.sample_name}.bracken.adjusted.abundances.txt")
             bracken_result = pd.read_csv(bracken_path, sep='\t')
             self.taxid = str(bracken_result.iloc[0]['taxonomy_id'])
             guessed_species_name = bracken_result.iloc[0]['name']
-            print(f"Getting expected, minimum and maximum genome size for {guessed_species_name} {self.taxid} from:")
-            print(f"{base_URL}{self.taxid}\n")
         else:
             self.taxid = str(self.taxid)
 
         url = f"{base_URL}{self.taxid}"
         response = requests.get(url)
 
+        data = {}
+        
         if response.content:
             try:
                 root = ET.fromstring(response.content)
@@ -48,12 +67,14 @@ class Genome:
                     'minimum_ungapped_length': int(root.findtext('minimum_ungapped_length')),
                     'maximum_ungapped_length': int(root.findtext('maximum_ungapped_length'))
                 }
-            except ET.ParseError:
-                print(f"Error parsing XML for taxid {self.taxid}")
+            except ET.ParseError as e:
+                print(f"Error parsing XML for taxid {self.taxid}: {e}")
         else:
             print(f"No content returned for taxid {self.taxid}")
-
-        self.qc_data['genome_size'] = data
+        if data:
+            self.qc_data['genome_size'] = data
+        else:
+            raise ValueError(f"Failed to retrieve genome size for taxid {self.taxid}")
 
     def get_assembly_size(self):
         """
@@ -81,7 +102,7 @@ class Genome:
         self.qc_data['assembly_size'] = {'total_length': total_length}
         
         
-    def check_bracken_results(self, min_primary_abundance=0.80):
+    def check_bracken(self, min_primary_abundance=0.80):
         """
         Check Bracken results for a given sample.
 
@@ -89,6 +110,10 @@ class Genome:
         """
         # Get the file path
         file_path = os.path.join(self.input_dir, self.sample_name, 'tools', 'bracken', f"{self.sample_name}.bracken.tsv")
+        
+        # Check the path exists
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Bracken data not found at {file_path}")
 
         # Read the file
         bracken_result = pd.read_csv(file_path, sep='\t')
@@ -107,17 +132,16 @@ class Genome:
         bracken_result['primary_abundance_requirement'] = min_primary_abundance
 
         # Check if the first word within bracken_primary_species differs from the first word within the bracken_secondary_species
-        only_one_dominant_primary_species = bracken_result['bracken_secondary_species'] != 'No secondary abundance > 1%'
+        has_secondary_species  = bracken_result['bracken_secondary_species'] != 'No secondary abundance > 1%'
 
-        # Check if our genera are Escherichia and Shigella
-        not_ecoli_and_shigella = {'Escherichia', 'Shigella'} == {bracken_result['bracken_primary_species'], bracken_result['bracken_secondary_species']}
+        # Check if our primary and secondary genera are Escherichia and Shigella (in either order)
+        is_ecoli_or_shigella  = {'Escherichia', 'Shigella'} == {bracken_result['bracken_primary_species'], bracken_result['bracken_secondary_species']}
 
         # Determine if there is a conflict in the genera detected
-        if only_one_dominant_primary_species and not_ecoli_and_shigella:
-            # Check if the first word within bracken_primary_species differs from the first word within the bracken_secondary_species
-            bracken_result['Genus_conflict'] = bracken_result['bracken_primary_species'].split()[0] != bracken_result['bracken_secondary_species'].split()[0]
+        if has_secondary_species and is_ecoli_or_shigella:
+            bracken_result['genus_conflict'] = bracken_result['bracken_primary_species'].split()[0] != bracken_result['bracken_secondary_species'].split()[0]
         else:
-            bracken_result['Genus_conflict'] = False
+            bracken_result['genus_conflict'] = False
 
         self.qc_data['bracken'] = bracken_result
         
@@ -125,7 +149,7 @@ class Genome:
         
         self.qc_requirements['bracken'] = {'min_primary_abundance': min_primary_abundance}
 
-    def check_mlst_results(self, expected_genus):
+    def check_mlst(self, expected_genus):
         """
         Check MLST results for a given sample.
 
@@ -133,6 +157,10 @@ class Genome:
         """
         # Get the file path
         file_path = os.path.join(self.input_dir, self.sample_name, 'tools', 'mlst', f"{self.sample_name}.tsv")
+        
+        # Check the path exists
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"MLST data not found at {file_path}")
 
         # Read the file
         mlst_result = pd.read_csv(file_path, sep='\t', header=None)
@@ -141,14 +169,25 @@ class Genome:
         mlst_result.columns = ['sample', 'scheme', 'ST', 'allele1', 'allele2', 'allele3', 'allele4', 'allele5', 'allele6', 'allele7']
 
         # Remove '.fna.gz' or '.fna' from the sample column
-        mlst_result['sample'] = mlst_result['sample'].str.replace('.fna.gz', '').str.replace('.fna', '')
+        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fna(\.gz)?$', '', regex=True)
+        
+        #Remove '.fasta.gz' or '.fasta' from the sample column
+        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fasta(\.gz)?$', '', regex=True)
+        
+        #Remove '.fna.gz' or '.fna' from the sample column
+        mlst_result['sample'] = mlst_result['sample'].str.replace(r'\.fa(\.gz)?$', '', regex=True)
 
         # Check that mlst_result has only one row
         if mlst_result.shape[0] != 1:
             raise ValueError(f"Sample {self.sample_name}: Expected one row in MLST data, but got {mlst_result.shape[0]} rows")
 
-        # Download the scheme species map
-        scheme_species_map = pd.read_csv('https://raw.githubusercontent.com/tseemann/mlst/refs/heads/master/db/scheme_species_map.tab', sep='\t')
+        # Download the scheme species map if necessary
+        cache_file = os.path.join(self.input_dir, 'scheme_species_map.tab')
+        if not os.path.exists(cache_file):
+            scheme_species_map = pd.read_csv('https://raw.githubusercontent.com/tseemann/mlst/master/db/scheme_species_map.tab', sep='\t')
+            scheme_species_map.to_csv(cache_file, sep='\t', index=False)
+        else:
+            scheme_species_map = pd.read_csv(cache_file, sep='\t')
 
         # Filter the dataframe to only the expected genus
         scheme_species_map = scheme_species_map[scheme_species_map['GENUS'] == expected_genus]
@@ -171,7 +210,7 @@ class Genome:
         
         self.qc_requirements['mlst']= {'expected_genus': expected_genus}
 
-    def check_checkm_results(self, min_completeness=80, max_contamination=10):
+    def check_checkm(self, min_completeness=80, max_contamination=10):
         """
         Checks CheckM results for a given sample and evaluates quality metrics.
 
@@ -186,7 +225,7 @@ class Genome:
 
         # Check that we found at least one checkm.tsv file
         if len(checkm_files) == 0:
-            raise ValueError("No checkm.tsv files found")
+            raise ValueError(f"Bracken data not found at {file_path}")
 
         # Determine the most recent checkm.tsv file based on the timestamp name of directory two levels up
         checkm_files = sorted(checkm_files, key=lambda x: os.path.basename(os.path.dirname(os.path.dirname(x))))
@@ -232,7 +271,7 @@ class Genome:
         self.qc_requirements['checkm'] = {'max_contamination': max_contamination,
                                           'min_completeness': min_completeness}
 
-    def check_assembly_scan_results(self, maximum_contigs=500, minimum_N50=15000):
+    def check_assembly_scan(self, maximum_contigs=500, minimum_N50=15000):
         """
         Check the quality of assembly scan results for a given sample.
 
@@ -246,6 +285,10 @@ class Genome:
 
         # Get the file path
         file_path = os.path.join(self.input_dir, self.sample_name, 'main', 'assembler', f"{self.sample_name}.tsv")
+
+        # Check the path exists
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Assembly scan data not found at {file_path}")
 
         # Read the file
         assembly_scan_df = pd.read_csv(file_path, sep='\t')
@@ -282,7 +325,7 @@ class Genome:
                                                  'minimum_ungapped_length': min_length,
                                                  'maximum_ungapped_length': max_length}
 
-    def check_fastp_data(self, min_q30_bases=0.90, min_coverage=30):
+    def check_fastp(self, min_q30_bases=0.90, min_coverage=30):
         """
         Checks fastp quality control data for a given sample.
 
@@ -291,7 +334,11 @@ class Genome:
 
         # Get the file path
         file_path = os.path.join(self.input_dir, self.sample_name, 'main', 'qc', 'summary', f"{self.sample_name}.fastp.json")
-
+        
+        # Check the path exists
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"Fastp data not found at {file_path}")
+        
         # Read the JSON file
         with open(file_path, 'r') as file:
             data = json.load(file)
@@ -337,21 +384,6 @@ class Genome:
         self.qc_requirements['fastp'] = {'min_q30_bases': min_q30_bases,
                                          'min_coverage': min_coverage}
 
-    def run(self):
-        """
-        Run all quality control checks for the sample.
-
-        Populates self.qc_data with the results.
-        """
-        self.get_expected_genome_size()
-        self.get_assembly_size()
-        self.check_bracken_results()
-        expected_genus = self.qc_data['genome_size']['organism_name'].split()[0]
-        self.check_mlst_results(expected_genus)
-        self.check_checkm_results()
-        self.check_assembly_scan_results()
-        self.check_fastp_data()
-
     def get_qc_results(self):
         """
         Returns the quality control results.
@@ -380,7 +412,6 @@ class Genome:
         Returns the quality control results.
         """
         # Return requirements for each QC check
-        print('\n\tQC Requirements:')
         return self.qc_requirements
         
         
