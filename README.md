@@ -1,6 +1,6 @@
 # bactQC
 
-![bactQC Logo](https://github.com/maxlcummins/bactopiaQCtools/blob/main/assets/logo.png?raw=true)
+![bactQC Logo](https://github.com/maxlcummins/bactQC/blob/main/assets/logo.png?raw=true)
 
 **bactQC** is a command-line tool designed for downstream processing of analysis performed by [Bactopia](https://github.com/bactopia/bactopia).
 
@@ -51,7 +51,7 @@ It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan
 
 ```bash
 # Clone our repo
-git clone https://github.com/maxlcummins/bactopiaQC.git
+git clone https://github.com/maxlcummins/bactQC.git
 
 # Enter it
 cd bactQC
