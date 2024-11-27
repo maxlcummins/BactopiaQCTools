@@ -1,5 +1,7 @@
 # Bactopia QC Tools
 
+Hello and welcome - note that all subcommands other than run are still under development. Don't bother trying to use them yet :)
+
 ## Installation
 
 ```bash
@@ -19,14 +21,12 @@ mamba activate bactQC
 pip install -e .
 ```
 
-
-
 ## Usage
 
 After installing `bactopiaQCtools`, you can use it by running the following command:
 
 ```bash
-bactQC [options]
+bactQC --help
 ```
 
 ### Options
