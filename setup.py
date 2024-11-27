@@ -8,7 +8,7 @@ setup(
     author='Max Cummins',
     author_email='max.l.cummins@gmail.com',
     description='A package for bacterial genome quality control of bactopia outputs',
-    url='https://github.com/maxlcummins/bactopiaQCtools',
+    url='https://github.com/maxlcummins/bactQC',
     install_requires=[
         'pandas',
         'requests',
