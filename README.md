@@ -2,7 +2,7 @@
 
 ![bactQC Logo](https://github.com/maxlcummins/bactopiaQCtools/blob/main/assets/logo.png?raw=true)
 
-**bactQC** is a command-line tool designed for downstream processing of analysis performed by Bactopia.
+**bactQC** is a command-line tool designed for downstream processing of analysis performed by [Bactopia](https://github.com/bactopia/bactopia).
 
 It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan, and Fastp, to ensure high-quality genomic data for downstream analyses.
 
@@ -201,15 +201,3 @@ Contributions are welcome! To contribute to bactQC, please follow these guidelin
 
 ### License
 This project is licensed under the MIT License.
-
-### Contact
-For any questions, issues, or feature requests, please open an issue on the GitHub repository or contact the maintainer:
-
-Max Cummins
-Email: max.cummins@example.com
-GitHub: @maxlcummins
-Acknowledgements
-Developed with ❤️ using Click, Rich, and other open-source libraries.
-Inspired by the Bactopia project.
-
-Figure 1: Overview of the bactQC Workflow
