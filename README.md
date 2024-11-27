@@ -78,7 +78,43 @@ pip install click rich emoji pandas requests
 ```
 ###  Usage
 
-The primary workflow is titled run. This is intended to tell the user if the genome has passed or failed each of the quality control analyses.
+There are two approaches to running this tools.
+
+Firstly, the user can analyse a given sample based on any specific tool by executing a `bactQC` subcommand:
+
+```
+bactQC [OPTIONS] COMMAND [ARGS]
+```
+
+bactQC commands include `check-assembly-scan`, `check-bracken`, `check-checkm`, `check-fastp`, `check-mlst`, `get-assembly-size`, and `get-expected-genome-size`.
+
+This will return key columns from the tool of interest as well as whether the genome passed QC for that tool (based on either default QC thresholds or user defined thresholds with the available flags).
+
+For example, running `check-mlst` will return the following:
+
+```
+$bactQC check-mlst Genome123 /home/username/path/to/bactopia_output_directory
+
+INFO:bactQC.core:Derived expected_genus from genome_size after fetching: Salmonella
+INFO:bactQC.core:Loaded cached scheme_species_map.tab
+INFO:bactQC.core:MLST scheme matches the expected genus schemes.
+              MLST Data              
+              ╷                      
+  Parameter   │ Value                
+ ═════════════╪═════════════════════ 
+  Scheme      │ senterica_achtman_2  
+  St          │ 3774                 
+  Allele1     │ aroC(147)            
+  Allele2     │ dnaN(14)             
+  Allele3     │ hemD(21)             
+  Allele4     │ hisD(88)             
+  Allele5     │ purE(6)              
+  Allele6     │ sucA(676)            
+  Allele7     │ thrA(12)             
+  Passed mlst │ True 
+```
+
+Secondly is via the `run` subcommand.This is intended to tell the user if the genome has passed or failed each of the quality control analyses.
 
 This will be printed to the screen along with the quality control thresholds utilised:
 
@@ -118,13 +154,25 @@ Checking /home/username/path/to/bactopia_output_directory
 💾 Results written to Genome123_qc_results.tsv
 ```
 
-By default, it will also write to file a tab-delimited file containing something like the following:
+### Outputs
 
-```
-sample	    Detected species (Bracken)	Detected species (Mash)	    bracken	mlst	checkm	assembly_scan	fastp
-Genome123	Salmonella enterica	        Salmonella enterica	        True	True	True	True	        True
-```
+By default, it will also write to file a tab-delimited file containing simlar to the following:
 
+|sample   |Detected species (Bracken)|Detected species (Mash)|bracken|mlst|checkm|assembly_scan|fastp|
+|:--------|:-------------------------|:----------------------|:------|:---|:-----|:------------|:----|
+|Genome123|Salmonella enterica       |Salmonella enterica    |True   |True|True  |True         | True|
+
+The columns should be interpreted as follows:
+
+| Column                   | Meaning                                               |
+|:-------------------------|:------------------------------------------------------|
+|Detected species (Bracken)|Which species was detected by Bactopia's run of Bracken|
+|Detected species (Mash)   |Which species was detected by Bactopia's run of Mash   |
+|bracken                   |Whether bracken QC passed                              |
+|mlst                      |Whether mlst QC passed                                 |
+|checkm                    |Whether checkm QC passed                               |
+|assembly_scan             |Whether assembly_scan QC passed                        |
+|fastp                     |Whether fastp QC passed                                |
 
 ### Examples
 
