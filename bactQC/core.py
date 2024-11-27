@@ -145,7 +145,7 @@ class Genome:
 
         self.qc_data['bracken'] = bracken_result
         
-        self.qc_results['Passed bracken'] = bracken_result['passed_bracken_QC']
+        self.qc_results['bracken'] = bracken_result['passed_bracken_QC']
         
         self.qc_requirements['bracken'] = {'min_primary_abundance': min_primary_abundance}
 
@@ -206,7 +206,7 @@ class Genome:
 
         self.qc_data['mlst'] = mlst_result
                 
-        self.qc_results['Passed mlst'] = mlst_result['passed_mlst']
+        self.qc_results['mlst'] = mlst_result['passed_mlst']
         
         self.qc_requirements['mlst']= {'expected_genus': expected_genus}
 
@@ -266,7 +266,7 @@ class Genome:
 
         self.qc_data['checkm'] = checkm_result
         
-        self.qc_results['Passed checkm'] = checkm_result['passed_checkm_QC']
+        self.qc_results['checkm'] = checkm_result['passed_checkm_QC']
         
         self.qc_requirements['checkm'] = {'max_contamination': max_contamination,
                                           'min_completeness': min_completeness}
@@ -318,7 +318,7 @@ class Genome:
 
         self.qc_data['assembly_scan'] = assembly_scan_results
         
-        self.qc_results['Passed assembly_scan'] = assembly_scan_results['passed_assembly_scan']
+        self.qc_results['assembly_scan'] = assembly_scan_results['passed_assembly_scan']
         
         self.qc_requirements['assembly_scan'] = {'maximum_contigs': maximum_contigs,
                                                  'minimum_N50': minimum_N50,
@@ -379,7 +379,7 @@ class Genome:
 
         self.qc_data['fastp'] = fastp_results
         
-        self.qc_results['Passed fastp'] = fastp_results['passed_fastp_QC']
+        self.qc_results['fastp'] = fastp_results['passed_fastp_QC']
         
         self.qc_requirements['fastp'] = {'min_q30_bases': min_q30_bases,
                                          'min_coverage': min_coverage}
@@ -399,7 +399,7 @@ class Genome:
         results_df['Detected species (Mash)'] = self.qc_data['genome_size']['organism_name']
 
         # Change column order
-        results_df = results_df[['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'Passed bracken', 'Passed mlst', 'Passed checkm', 'Passed assembly_scan', 'Passed fastp']]
+        results_df = results_df[['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp']]
 
         # Write the results to file
         results_df.to_csv(f"{self.sample_name}_qc_results.tsv", sep='\t')

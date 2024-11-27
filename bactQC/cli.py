@@ -4,6 +4,7 @@ import click
 from .core import Genome
 import emoji
 import textwrap
+import os
 
 ASCII_ART = r"""
    ___           __            _     
@@ -35,6 +36,19 @@ def run(sample_name, input_dir, taxid):
     # Show the ASCII art
     click.secho(ASCII_ART, fg='bright_green', bold=True)
     
+    # Say hello
+    click.secho("Thanks for using Bactopia QC tools!", fg='bright_green', bold=True)
+    click.secho("Please report any issues on the Github: https://github.com/maxlcummins/bactopiaQCtools/issues", fg='bright_green', bold=True)
+    
+    # Get the absolute path of the input directory
+    abs_input_path = os.path.abspath(input_dir)
+    
+    # Print target sample and input directory
+    click.secho(f"\n🦠🧬 Analysing Bactopia outputs for {sample_name} - checking {abs_input_path}", fg='bright_green', bold=True)
+    
+    # Remove the sample key from the thresholds dictionary
+    thresholds.pop('sample')
+    
     # Header
     click.secho("\n❓ Quality Control Thresholds:", fg='cyan', bold=True)
     for key, value in thresholds.items():
@@ -55,7 +69,7 @@ def run(sample_name, input_dir, taxid):
         click.echo(f"{check}: {status} {emoji_icon}")
         
     # Header
-    click.secho(f"\n💾 Results written to {thresholds['sample']}_qc_results.tsv", fg='cyan', bold=True)
+    click.secho(f"\n💾 Results written to {sample_name}_qc_results.tsv", fg='cyan', bold=True)
 
 @click.command()
 @click.argument('sample_name')
