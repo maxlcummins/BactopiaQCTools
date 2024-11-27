@@ -57,7 +57,7 @@ def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, 
     
     # Display Thank You and GitHub link
     console.print("Thanks for using Bactopia QC tools!", style="bright_green bold")
-    console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactopiaQCtools/issues", style="bright_green bold")
+    console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactQC/issues", style="bright_green bold")
     
     # Get the absolute path of the input directory
     abs_input_path = os.path.abspath(input_dir)
