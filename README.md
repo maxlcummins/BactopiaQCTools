@@ -29,13 +29,6 @@ After installing `bactopiaQCtools`, you can use it by running the following comm
 bactQC --help
 ```
 
-### Options
-
-- `--input <path>`: Path to the input file or directory.
-- `--output <path>`: Path to the output directory.
-- `--threads <number>`: Number of threads to use.
-- `--verbose`: Enable verbose output.
-
 ### Example
 
 Here is an example of how to run `bactopiaQCtools`:
