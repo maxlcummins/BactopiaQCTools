@@ -51,10 +51,10 @@ It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan
 
 ```bash
 # Clone our repo
-git clone https://github.com/maxlcummins/bactopiaQCtools.git
+git clone https://github.com/maxlcummins/bactopiaQC.git
 
 # Enter it
-cd bactopiaQCtools
+cd bactQC
 ```
 
 ### Install Dependencies
@@ -67,7 +67,7 @@ mamba create -n bactQC python>=3.6
 # Activate the environment
 mamba activate bactQC
 
-# Install required packages - Ensure you're in the bactQCtools
+# Install required packages - Ensure you're in the bactQC directory containing setup.py
 pip install .
 ```
 
