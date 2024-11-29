@@ -42,6 +42,14 @@ def cli():
 @click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
 def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage):
     """Run all quality control checks for a sample."""
+    
+    # Display ASCII Art
+    console.print(ASCII_ART, style="bright_green bold")
+    
+    # Display Thank You and GitHub link
+    console.print("Thanks for using Bactopia QC tools!", style="bright_green bold")
+    console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactQC/issues", style="bright_green bold")
+    
     # Initialize Genome object from core.py
     qc = Genome(sample_name, input_dir, taxid)
     try:
@@ -51,14 +59,7 @@ def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, 
     except Exception as e:
         console.print(f"Error during QC run: {e}", style="bold red")
         exit(1)
-    
-    # Display ASCII Art
-    console.print(ASCII_ART, style="bright_green bold")
-    
-    # Display Thank You and GitHub link
-    console.print("Thanks for using Bactopia QC tools!", style="bright_green bold")
-    console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactQC/issues", style="bright_green bold")
-    
+        
     # Get the absolute path of the input directory
     abs_input_path = os.path.abspath(input_dir)
     
@@ -137,7 +138,7 @@ def display_qc_results(results):
         if passed:
             status = emoji.emojize("[green]Passed[/green] :check_mark_button:")
         else:
-            status = emoji.emojize("[red]Failed[/red :cross_mark:")
+            status = emoji.emojize("[red]Failed[/red] :cross_mark:")
         
         results_table.add_row(check_name, status)
     
