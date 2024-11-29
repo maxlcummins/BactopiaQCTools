@@ -54,7 +54,6 @@ def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, 
     qc = Genome(sample_name, input_dir, taxid)
     try:
         qc.run()
-        qc.overall_qc()
         results = qc.get_qc_results()
         thresholds = qc.get_qc_thresholds()
     except Exception as e:

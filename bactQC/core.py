@@ -445,14 +445,7 @@ class Genome:
             'min_coverage': min_coverage
         }
         
-        logger.info("fastp processing complete.")
-
-    def overall_qc(self):
-        # Check if all QC checks passed
-        self.qc_results['overall'] = all(self.qc_results.values())
-        
-        return self.qc_results
-        
+        logger.info("fastp processing complete.")       
 
     def get_qc_results(self):
         """
@@ -460,17 +453,33 @@ class Genome:
 
         Creates a TSV file with the QC results.
         """
+        
+        # Check if all QC checks passed
+        self.qc_results['overall'] = all(self.qc_results.values())
+              
         # Create a DataFrame from the qc_results dictionary
         results_df = pd.DataFrame.from_dict(self.qc_results, orient='index', columns=['Status']).T
+              
+        # Capitalize the first letter of each column name in the DataFrame
+        results_df.columns = [col.capitalize() for col in results_df.columns]
+              
+        # keep sample lowercase
+        results_df.rename(columns={'Sample': 'sample'}, inplace=True)
         
+        # Rename Mlst to be MLST
+        results_df.rename(columns={'Mlst': 'MLST'}, inplace=True)
+        
+        # Rename checkM to be CheckM
+        results_df.rename(columns={'Checkm': 'CheckM'}, inplace=True)
+
         # Add columns for detected species
         bracken_species = self.qc_data.get('bracken', {}).get('bracken_primary_species', 'N/A')
         mash_species = self.qc_data.get('genome_size', {}).get('organism_name', 'N/A')
-        results_df['Detected species (Bracken)'] = bracken_species
-        results_df['Detected species (Mash)'] = mash_species
-
+        results_df['Detected_species_(Bracken)'] = bracken_species
+        results_df['Detected_species_(Mash)'] = mash_species
+        
         # Reorder columns
-        desired_order = ['sample', 'Detected_species_(Bracken)', 'Detected_species_(Mash)', 'Bracken', 'MLST', 'CheckM', 'Assembly_Scan', 'Fastp', 'Overall']
+        desired_order = ['sample', 'Detected_species_(Bracken)', 'Detected_species_(Mash)', 'Bracken', 'MLST', 'CheckM', 'Assembly_scan', 'Fastp', 'Overall']
         results_df = results_df.reindex(columns=desired_order)
 
         # Write the results to file
