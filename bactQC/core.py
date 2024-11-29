@@ -247,6 +247,8 @@ class Genome:
         self.qc_results['mlst'] = mlst_result['passed_mlst']
         
         self.qc_requirements['mlst'] = {'expected_genus': expected_genus}
+        
+        logger.info("MLST processing complete.")
 
     def check_checkm(self, min_completeness=80, max_contamination=10):
         """
@@ -254,9 +256,12 @@ class Genome:
 
         Updates self.qc_data['checkm'] with the results.
         """
+        
+        logger.info(f"Searching for CheckM files in {self.input_dir}/bactopia-runs")
+        
         # Search recursively for all files in the input directory called 'checkm.tsv'
         checkm_files = []
-        for root, dirs, files in os.walk(self.input_dir):
+        for root, dirs, files in os.walk(os.path.join(self.input_dir, 'bactopia-runs')):
             for file in files:
                 if file == 'checkm.tsv':
                     checkm_files.append(os.path.join(root, file))
@@ -264,6 +269,10 @@ class Genome:
         # Check that we found at least one checkm.tsv file
         if len(checkm_files) == 0:
             raise ValueError(f"CheckM data not found in any 'checkm.tsv' files within '{self.input_dir}'")
+
+        # Check that we found at least one checkm.tsv file
+        if len(checkm_files) > 1:
+            logger.info(f"Multiple checkM files detected in {self.input_dir}")
 
         # Determine the most recent checkm.tsv file based on the timestamp name of directory two levels up
         checkm_files = sorted(checkm_files, key=lambda x: os.path.basename(os.path.dirname(os.path.dirname(x))))
@@ -310,6 +319,8 @@ class Genome:
             'max_contamination': max_contamination,
             'min_completeness': min_completeness
         }
+        
+        logger.info("checkm processing complete.")
 
     def check_assembly_scan(self, maximum_contigs=500, minimum_n50=15000):
         """
@@ -366,6 +377,8 @@ class Genome:
             'minimum_ungapped_length': min_length,
             'maximum_ungapped_length': max_length
         }
+        
+        logger.info("Assembly scan processing complete.")
 
     def check_fastp(self, min_q30_bases=0.90, min_coverage=30):
         """
@@ -431,6 +444,8 @@ class Genome:
             'min_q30_bases': min_q30_bases,
             'min_coverage': min_coverage
         }
+        
+        logger.info("fastp processing complete.")
 
     def get_qc_results(self):
         """
