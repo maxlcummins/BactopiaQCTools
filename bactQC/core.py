@@ -447,6 +447,13 @@ class Genome:
         
         logger.info("fastp processing complete.")
 
+    def overall_qc(self):
+        # Check if all QC checks passed
+        self.qc_results['overall'] = all(self.qc_results.values())
+        
+        return self.qc_results
+        
+
     def get_qc_results(self):
         """
         Returns the quality control results.
@@ -463,7 +470,7 @@ class Genome:
         results_df['Detected species (Mash)'] = mash_species
 
         # Reorder columns
-        desired_order = ['sample', 'Detected species (Bracken)', 'Detected species (Mash)', 'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp']
+        desired_order = ['sample', 'Detected_species_(Bracken)', 'Detected_species_(Mash)', 'Bracken', 'MLST', 'CheckM', 'Assembly_Scan', 'Fastp', 'Overall']
         results_df = results_df.reindex(columns=desired_order)
 
         # Write the results to file

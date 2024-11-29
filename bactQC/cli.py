@@ -54,6 +54,7 @@ def run(sample_name, input_dir, taxid, min_primary_abundance, min_completeness, 
     qc = Genome(sample_name, input_dir, taxid)
     try:
         qc.run()
+        qc.overall_qc()
         results = qc.get_qc_results()
         thresholds = qc.get_qc_thresholds()
     except Exception as e:
@@ -94,13 +95,13 @@ def display_thresholds(thresholds):
     
     for check, params in thresholds.items():
         # Format check name
-        check_name = check.replace('_', ' ').capitalize()
+        check_name = check.replace('_', ' ')
         
         # If params is a dictionary, format each parameter
         if isinstance(params, dict):
             param_lines = []
             for param_key, param_value in params.items():
-                param_name = param_key.replace('_', ' ').capitalize()
+                param_name = param_key.replace('_', ' ')
                 param_lines.append(f"[green]{param_name}[/green]: {param_value}")
             param_text = "\n".join(param_lines)
         else:
@@ -132,7 +133,7 @@ def display_qc_results(results):
     
     for check, passed in results.items():
         # Format check name
-        check_name = check.replace('_', ' ').capitalize()
+        check_name = check.replace('_', ' ')
         
         # Determine status and emoji
         if passed:
@@ -168,7 +169,7 @@ def get_expected_genome_size(sample_name, input_dir, taxid):
     genome_table.add_column("Value", style="cyan")
     
     for key, value in genome_size.items():
-        genome_table.add_row(key.replace('_', ' ').capitalize(), str(value))
+        genome_table.add_row(key.replace('_', ' '), str(value))
     
     console.print(genome_table)
 
@@ -195,7 +196,7 @@ def get_assembly_size(sample_name, input_dir):
     assembly_table.add_column("Value", style="cyan")
     
     for key, value in assembly_size.items():
-        assembly_table.add_row(key.replace('_', ' ').capitalize(), str(value))
+        assembly_table.add_row(key.replace('_', ' '), str(value))
     
     console.print(assembly_table)
 
@@ -224,7 +225,7 @@ def check_bracken(sample_name, input_dir, min_primary_abundance):
     
     for key, value in bracken_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ').capitalize()
+        param_name = key.replace('_', ' ')
         bracken_table.add_row(param_name, str(value))
     
     console.print(bracken_table)
@@ -253,7 +254,7 @@ def check_mlst(sample_name, input_dir):
     
     for key, value in mlst_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ').capitalize()
+        param_name = key.replace('_', ' ')
         mlst_table.add_row(param_name, str(value))
     
     console.print(mlst_table)
@@ -284,7 +285,7 @@ def check_checkm(sample_name, input_dir, min_completeness, max_contamination):
     
     for key, value in checkm_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ').capitalize()
+        param_name = key.replace('_', ' ')
         checkm_table.add_row(param_name, str(value))
     
     console.print(checkm_table)
@@ -315,7 +316,7 @@ def check_assembly_scan(sample_name, input_dir, maximum_contigs, minimum_n50):
     
     for key, value in assembly_scan_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ').capitalize()
+        param_name = key.replace('_', ' ')
         assembly_scan_table.add_row(param_name, str(value))
     
     console.print(assembly_scan_table)
@@ -346,7 +347,7 @@ def check_fastp(sample_name, input_dir, min_q30_bases, min_coverage):
     
     for key, value in fastp_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ').capitalize()
+        param_name = key.replace('_', ' ')
         fastp_table.add_row(param_name, str(value))
     
     console.print(fastp_table)
