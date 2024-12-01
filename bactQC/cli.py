@@ -62,9 +62,7 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
             minimum_n50=minimum_n50,
             min_q30_bases=min_q30_bases,
             min_coverage=min_coverage
-        )
-        console.print("Determining if genome passed or failed", style="bold green")
-        
+        )        
         # Determine output filenames based on whether sample_name is provided
         if sample_name:
             output_prefix_results = f"{sample_name}_qc_results"

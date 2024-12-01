@@ -40,24 +40,24 @@ class Genome:
             self.qc_data[sample_name] = {'sample': sample_name}
             self.qc_results[sample_name] = {}
             self.qc_requirements[sample_name] = {}
-            print(f"Processing sample {sample_name}")
+            logger.info(f"Processing sample {sample_name}")
             try:
-                print("Getting expected genome size")
+                logger.info("Getting expected genome size")
                 self.get_expected_genome_size(sample_name)
-                print("Determining assembly size")
+                logger.info("Determining assembly size")
                 self.get_assembly_size(sample_name)
-                print("Analysing Bracken data")
+                logger.info("Analysing Bracken data")
                 self.check_bracken(sample_name, min_primary_abundance)
                 expected_genus = self.qc_data[sample_name]['genome_size']['organism_name'].split()[0]
-                print("Analysing MLST data")
+                logger.info("Analysing MLST data")
                 self.check_mlst(sample_name, expected_genus)
-                print("Analysing CheckM data")
+                logger.info("Analysing CheckM data")
                 self.check_checkm(sample_name, min_completeness, max_contamination)
-                print("Analysing Assembly Scan data")
+                logger.info("Analysing Assembly Scan data")
                 self.check_assembly_scan(sample_name, maximum_contigs, minimum_n50)
-                print("Analysing FastP data")
+                logger.info("Analysing FastP data")
                 self.check_fastp(sample_name, min_q30_bases, min_coverage)
-                print("Overall QC")
+                logger.info("Overall QC")
                 self.overall_qc(sample_name)
             except Exception as e:
                 logger.error(f"Error processing sample {sample_name}: {e}")
