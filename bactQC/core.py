@@ -1,3 +1,5 @@
+# bactQC/core.py
+
 import os
 import pandas as pd
 import requests
@@ -68,10 +70,12 @@ class Genome:
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
 
-        # Initialize qc_data for the sample if not already done
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # Determine taxid for the sample
@@ -119,7 +123,6 @@ class Genome:
         else:
             raise ValueError(f"Failed to retrieve genome size for taxid {taxid}. 'organism_name' is missing.")
 
-
     def get_assembly_size(self, sample_name):
         """
         Retrieves the total contig length in base-pairs for a given sample from the assembler results.
@@ -128,11 +131,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # Construct the file path to the assembler results
@@ -162,11 +167,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # Get the file path
@@ -220,11 +227,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # If expected_genus is not provided, derive it from genome_size
@@ -325,11 +334,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         logger.info(f"Searching for CheckM files in {self.input_dir}/bactopia-runs")
@@ -401,11 +412,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # Ensure genome size data is available
@@ -468,11 +481,13 @@ class Genome:
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
-        
-        # Initialize qc_data for the sample if not already done
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
         if sample_name not in self.qc_data:
             self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
             self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
             self.qc_requirements[sample_name] = {}
 
         # Get the file path
@@ -575,7 +590,9 @@ class Genome:
         # Reorder columns
         desired_order = ['sample', 'Detected species (Bracken)', 'Detected species (Mash)',
                          'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp', 'overall']
-        results_df = results_df.reindex(columns=desired_order)
+        # Ensure all desired columns are present
+        existing_columns = [col for col in desired_order if col in results_df.columns]
+        results_df = results_df.reindex(columns=existing_columns)
 
         # Write the results to file
         results_df.to_csv(f"{output_prefix}.tsv", sep='\t', index=False)
@@ -615,9 +632,10 @@ class Genome:
         thresholds_df = pd.DataFrame(thresholds_list)
 
         # Reorder columns to have 'sample' as the first column
-        cols = thresholds_df.columns.tolist()
-        cols.insert(0, cols.pop(cols.index('sample')))
-        thresholds_df = thresholds_df[cols]
+        if 'sample' in thresholds_df.columns:
+            cols = thresholds_df.columns.tolist()
+            cols.insert(0, cols.pop(cols.index('sample')))
+            thresholds_df = thresholds_df[cols]
 
         # Write the thresholds to file
         thresholds_df.to_csv(f"{output_prefix}.tsv", sep='\t', index=False)

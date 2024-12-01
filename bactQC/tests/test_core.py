@@ -152,6 +152,21 @@ def test_check_mlst(mock_read_csv, mock_isfile, mock_exists, genome):
     # Assert expected results
     mlst_result = genome.qc_data['sample1']['mlst']
     assert mlst_result['passed_mlst']
+    assert mlst_result['scheme'] == 'ecoli'
+    assert mlst_result['ST'] == 10
+    assert mlst_result['allele1'] == 'adk(1)'
+    assert mlst_result['allele2'] == 'fumC(1)'
+    assert mlst_result['allele3'] == 'gyrB(1)'
+    assert mlst_result['allele4'] == 'icd(1)'
+    assert mlst_result['allele5'] == 'mdh(1)'
+    assert mlst_result['allele6'] == 'purA(1)'
+    assert mlst_result['allele7'] == 'recA(1)'
+
+    # Assert qc_results
+    assert genome.qc_results['sample1']['mlst'] is True
+
+    # Assert qc_requirements
+    assert genome.qc_requirements['sample1']['mlst'] == {'expected_genus': 'Escherichia'}
 
 def test_get_expected_genome_size_no_bracken(genome):
     # Mock Bracken file existence to be False
@@ -186,6 +201,8 @@ def test_check_checkm(mock_read_csv, mock_walk, genome):
     assert checkm_result['passed_checkm_QC']
     assert checkm_result['passed_completeness']
     assert checkm_result['passed_contamination']
+    assert checkm_result['completeness_requirement'] == 80
+    assert checkm_result['contamination_requirement'] == 10
 
 @patch('os.path.isfile')
 @patch('pandas.read_csv')
@@ -222,6 +239,22 @@ def test_check_assembly_scan(mock_read_csv, mock_isfile, genome):
     assert assembly_scan_result['passed_contigs']
     assert assembly_scan_result['passed_N50']
     assert assembly_scan_result['passed_genome_size']
+    assert assembly_scan_result['total_contig_length'] == 5000000
+    assert assembly_scan_result['total_contig'] == 100
+    assert assembly_scan_result['n50_contig_length'] == 20000
+    assert assembly_scan_result['organism_name'] == 'Escherichia coli'
+    assert assembly_scan_result['species_taxid'] == '562'
+
+    # Assert qc_results
+    assert genome.qc_results['sample1']['assembly_scan'] is True
+
+    # Assert qc_requirements
+    assert genome.qc_requirements['sample1']['assembly_scan'] == {
+        'maximum_contigs': 500,
+        'minimum_n50': 15000,
+        'minimum_ungapped_length': 4500000,
+        'maximum_ungapped_length': 5500000
+    }
 
 @patch('os.path.isfile')
 @patch('builtins.open', new_callable=mock_open, read_data='{"summary": {"before_filtering": {"total_reads": 1000000, "total_bases": 160000000, "q30_rate": 0.95, "gc_content": 0.5}, "after_filtering": {"total_reads": 950000, "total_bases": 155000000, "q20_rate": 0.98, "q30_rate": 0.96, "gc_content": 0.5}}}')
@@ -244,6 +277,26 @@ def test_check_fastp(mock_file, mock_isfile, genome):
     assert fastp_result['passed_coverage']
     from pytest import approx
     assert fastp_result['coverage'] == approx(31.0, abs=0.1)
+
+    # Additional assertions for fastp metrics
+    assert fastp_result['pre_filt_total_reads'] == 1000000
+    assert fastp_result['pre_filt_total_bases'] == 160000000
+    assert fastp_result['pre_filt_q30_rate'] == 0.95
+    assert fastp_result['pre_filt_gc'] == 0.5
+    assert fastp_result['post_filt_total_reads'] == 950000
+    assert fastp_result['post_filt_total_bases'] == 155000000
+    assert fastp_result['post_filt_q20_rate'] == 0.98
+    assert fastp_result['post_filt_q30_rate'] == 0.96
+    assert fastp_result['post_filt_gc'] == 0.5
+
+    # Assert qc_results
+    assert genome.qc_results['sample1']['fastp'] is True
+
+    # Assert qc_requirements
+    assert genome.qc_requirements['sample1']['fastp'] == {
+        'min_q30_bases': 0.90,
+        'min_coverage': 30
+    }
 
 @patch('pandas.DataFrame.to_csv')
 def test_get_qc_results(mock_to_csv, genome):
@@ -273,14 +326,14 @@ def test_get_qc_results(mock_to_csv, genome):
     # Assert expected results
     expected_results = pd.DataFrame([{
         'sample': 'sample1',
-        'Detected species (Bracken)': 'Escherichia coli',
-        'Detected species (Mash)': 'Escherichia coli',
         'bracken': True,
         'mlst': True,
         'checkm': True,
         'assembly_scan': True,
         'fastp': True,
-        'overall': True
+        'overall': True,
+        'Detected species (Bracken)': 'Escherichia coli',
+        'Detected species (Mash)': 'Escherichia coli'
     }])
 
     # Since results is a DataFrame, compare it to expected_results

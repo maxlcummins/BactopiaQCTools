@@ -23,10 +23,12 @@ ASCII_ART = r"""
 
 """
 
+
 @click.group()
 def cli():
     """bactQC: A tool for bacterial genome quality control."""
     pass
+
 
 @cli.command()
 @click.option('--sample_name', help='Name of a sample to analyze')
@@ -87,12 +89,15 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
         console.print("\n🦠🧬 Analysing Bactopia outputs for all samples")
     console.print(f"Checking [bold]{abs_input_path}[/bold]", style="bright_green")
     
-    # Remove the 'sample' column from the thresholds DataFrame if present
-    if 'sample' in thresholds.columns:
-        thresholds.set_index('sample', inplace=True)
+    # Merge thresholds with results to include 'Detected species (Bracken)'
+    if 'sample' in thresholds.columns and 'sample' in results.columns and 'Detected species (Bracken)' in results.columns:
+        merged_thresholds = thresholds.merge(results[['sample', 'Detected species (Bracken)']], on='sample', how='left')
+    else:
+        console.print("Required columns for merging thresholds and results are missing.", style="bold red")
+        exit(1)
     
-    # Display QC Thresholds
-    display_thresholds(thresholds)
+    # Display QC Thresholds in Summarized Wide Format with Species-Specific Columns
+    display_thresholds_summary(merged_thresholds)
     
     # Display QC Results
     display_qc_results(results)
@@ -101,7 +106,74 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
     console.print(f"\n💾 Results written to [cyan]{output_prefix_results}.tsv[/cyan]", style="bold cyan")
     console.print(f"💾 Thresholds written to [cyan]{output_prefix_thresholds}.tsv[/cyan]", style="bold cyan")
 
-# Define the individual commands
+
+def display_thresholds_summary(thresholds):
+    """Display QC Thresholds in a summarized, well-formatted table with species-specific columns."""
+    if thresholds.empty:
+        console.print("No QC thresholds to display.", style="yellow")
+        return
+    
+    console.print("\n❓ Quality Control Thresholds:", style="bold cyan")
+    
+    # Define columns to exclude
+    columns_to_exclude = ['sample', 'mlst_expected_genus']
+    # Determine columns to display
+    display_columns = [col for col in thresholds.columns if col not in columns_to_exclude]
+    
+    if not display_columns:
+        console.print("No QC thresholds to display after excluding specified columns.", style="yellow")
+        return
+    
+    # Extract genus from 'Detected species (Bracken)'
+    # Assuming 'Detected species (Bracken)' is in the format "Genus species", e.g., "Escherichia coli"
+    thresholds['genus'] = thresholds['Detected species (Bracken)'].apply(
+        lambda x: x.split()[0] if isinstance(x, str) and len(x.split()) >=1 else 'Unknown'
+    )
+    
+    # Identify species-specific parameters
+    # For simplicity, we assume 'assembly_scan_minimum_ungapped_length' and 'assembly_scan_maximum_ungapped_length' vary by species
+    species_specific_params = [
+        'assembly_scan_minimum_ungapped_length',
+        'assembly_scan_maximum_ungapped_length'
+    ]
+    
+    # Initialize a dictionary to hold parameters
+    threshold_dict = {}
+    
+    # Handle non-species-specific parameters
+    for col in display_columns:
+        if col not in species_specific_params:
+            # Assuming all non-species-specific parameters have the same value across samples
+            unique_values = thresholds[col].unique()
+            if len(unique_values) == 1:
+                threshold_dict[col.replace('_', ' ').title()] = unique_values[0]
+            else:
+                # If values differ, it's unexpected; handle gracefully
+                threshold_dict[col.replace('_', ' ').title()] = ', '.join(map(str, unique_values))
+    
+    # Handle species-specific parameters
+    for param in species_specific_params:
+        for sp in thresholds['genus'].unique():
+            # Get the threshold value for this species and parameter
+            species_threshold = thresholds[thresholds['genus'] == sp]
+            if species_threshold.empty:
+                continue  # No data for this species
+            value = species_threshold[param].iloc[0]
+            # Create a key with species name
+            param_name = f"{param.replace('_', ' ').title()} ({sp})"
+            threshold_dict[param_name] = value
+    
+    # Create a Rich table for thresholds summary
+    thresholds_table = Table(title="", box=box.MINIMAL_DOUBLE_HEAD)
+    thresholds_table.add_column("Parameter", style="bold green")
+    thresholds_table.add_column("Value", style="cyan")
+    
+    for key, value in threshold_dict.items():
+        thresholds_table.add_row(key, str(value))
+    
+    console.print(thresholds_table)
+
+
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
 @click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
@@ -125,9 +197,10 @@ def get_assembly_size(sample_name, input_dir):
     assembly_table.add_column("Value", style="cyan")
     
     for key, value in assembly_size.items():
-        assembly_table.add_row(key.replace('_', ' '), str(value))
+        assembly_table.add_row(key.replace('_', ' ').title(), str(value))
     
     console.print(assembly_table)
+
 
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
@@ -154,10 +227,11 @@ def check_bracken(sample_name, input_dir, min_primary_abundance):
     
     for key, value in bracken_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ')
+        param_name = key.replace('_', ' ').title()
         bracken_table.add_row(param_name, str(value))
     
     console.print(bracken_table)
+
 
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
@@ -185,10 +259,11 @@ def check_mlst(sample_name, input_dir):
     
     for key, value in mlst_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ')
+        param_name = key.replace('_', ' ').title()
         mlst_table.add_row(param_name, str(value))
     
     console.print(mlst_table)
+
 
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
@@ -216,10 +291,11 @@ def check_checkm(sample_name, input_dir, min_completeness, max_contamination):
     
     for key, value in checkm_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ')
+        param_name = key.replace('_', ' ').title()
         checkm_table.add_row(param_name, str(value))
     
     console.print(checkm_table)
+
 
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
@@ -247,10 +323,11 @@ def check_assembly_scan(sample_name, input_dir, maximum_contigs, minimum_n50):
     
     for key, value in assembly_scan_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ')
+        param_name = key.replace('_', ' ').title()
         assembly_scan_table.add_row(param_name, str(value))
     
     console.print(assembly_scan_table)
+
 
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
@@ -278,32 +355,78 @@ def check_fastp(sample_name, input_dir, min_q30_bases, min_coverage):
     
     for key, value in fastp_data.items():
         # Format parameter name
-        param_name = key.replace('_', ' ')
+        param_name = key.replace('_', ' ').title()
         fastp_table.add_row(param_name, str(value))
     
     console.print(fastp_table)
 
-def display_thresholds(thresholds):
-    """Display QC Thresholds in a well-formatted table."""
+
+def display_thresholds_summary(thresholds):
+    """Display QC Thresholds in a summarized, well-formatted table with species-specific columns."""
     if thresholds.empty:
         console.print("No QC thresholds to display.", style="yellow")
         return
     
     console.print("\n❓ Quality Control Thresholds:", style="bold cyan")
     
-    # Create a Rich table for thresholds
-    thresholds_table = Table(title="", box=box.MINIMAL_DOUBLE_HEAD)
-    thresholds_table.add_column("Sample", style="bold magenta", no_wrap=True)
-    thresholds_table.add_column("QC Check", style="bold green")
-    thresholds_table.add_column("Parameters", style="cyan")
+    # Define columns to exclude
+    columns_to_exclude = ['sample', 'mlst_expected_genus']
+    # Determine columns to display
+    display_columns = [col for col in thresholds.columns if col not in columns_to_exclude]
     
-    for idx, row in thresholds.iterrows():
-        sample_name = idx
-        for check, params in row.items():
-            param_text = str(params)
-            thresholds_table.add_row(sample_name, check.replace('_', ' ').title(), param_text)
+    if not display_columns:
+        console.print("No QC thresholds to display after excluding specified columns.", style="yellow")
+        return
+    
+    # Extract genus from 'Detected species (Bracken)'
+    # Assuming 'Detected species (Bracken)' is in the format "Genus species", e.g., "Escherichia coli"
+    thresholds['genus'] = thresholds['Detected species (Bracken)'].apply(
+        lambda x: x.split()[0] if isinstance(x, str) and len(x.split()) >=1 else 'Unknown'
+    )
+    
+    # Identify species-specific parameters
+    # For simplicity, we assume 'assembly_scan_minimum_ungapped_length' and 'assembly_scan_maximum_ungapped_length' vary by species
+    species_specific_params = [
+        'assembly_scan_minimum_ungapped_length',
+        'assembly_scan_maximum_ungapped_length'
+    ]
+    
+    # Initialize a dictionary to hold parameters
+    threshold_dict = {}
+    
+    # Handle non-species-specific parameters
+    for col in display_columns:
+        if col not in species_specific_params:
+            # Assuming all non-species-specific parameters have the same value across species
+            unique_values = thresholds[col].unique()
+            if len(unique_values) == 1:
+                threshold_dict[col.replace('_', ' ').title()] = unique_values[0]
+            else:
+                # If values differ, list all unique values
+                threshold_dict[col.replace('_', ' ').title()] = ', '.join(map(str, unique_values))
+    
+    # Handle species-specific parameters
+    for param in species_specific_params:
+        for sp in thresholds['genus'].unique():
+            # Get the threshold value for this species and parameter
+            species_threshold = thresholds[thresholds['genus'] == sp]
+            if species_threshold.empty:
+                continue  # No data for this species
+            value = species_threshold[param].iloc[0]
+            # Create a key with species name
+            param_name = f"{param.replace('_', ' ').title()} ({sp})"
+            threshold_dict[param_name] = value
+    
+    # Create a Rich table for thresholds summary
+    thresholds_table = Table(title="", box=box.MINIMAL_DOUBLE_HEAD)
+    thresholds_table.add_column("Parameter", style="bold green")
+    thresholds_table.add_column("Value", style="cyan")
+    
+    for key, value in threshold_dict.items():
+        thresholds_table.add_row(key, str(value))
     
     console.print(thresholds_table)
+
 
 def display_qc_results(results):
     """Display QC Results in a well-formatted table with status and emojis."""
@@ -346,21 +469,21 @@ def display_qc_results(results):
     total_samples = len(results)
 
     # Initialize a summary dict
-    summary = {'sample': 'Total Passed'}
+    summary = {'Sample': 'Total Passed'}
 
     for col in data_columns:
         # Only consider boolean columns
         if results[col].dtype == bool:
             num_passed = results[col].sum()
             percent_passed = (num_passed / total_samples) * 100
-            summary[col] = f"{num_passed}/{total_samples} ({percent_passed:.1f}%)"
+            summary[col.replace('_', ' ').title()] = f"{num_passed}/{total_samples} ({percent_passed:.1f}%)"
         else:
-            summary[col] = ''  # Empty string for non-boolean columns
+            summary[col.replace('_', ' ').title()] = ''  # Empty string for non-boolean columns
 
     # Build the summary row values
-    summary_values = [summary['sample']]
+    summary_values = [summary['Sample']]
     for col in data_columns:
-        summary_values.append(summary[col])
+        summary_values.append(summary[col.replace('_', ' ').title()])
 
     # Add a separator row
     results_table.add_row(*['-' * 10] * len(summary_values))
@@ -369,6 +492,7 @@ def display_qc_results(results):
     results_table.add_row(*summary_values)
 
     console.print(results_table)
+
 
 # Add commands to the CLI group
 cli.add_command(run)
