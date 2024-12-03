@@ -212,7 +212,7 @@ Example:
 bactQC check_bracken --sample_name sample1
 ```
 
-### heck MLST
+### Check MLST
 Check MLST results for a sample.
 
 ```bash
