@@ -73,6 +73,7 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
         
         results = qc.get_qc_results(output_prefix=output_prefix_results)
         thresholds = qc.get_qc_thresholds(output_prefix=output_prefix_thresholds)
+
     except Exception as e:
         console.print(f"Error during QC run: {e}", style="bold red")
         exit(1)

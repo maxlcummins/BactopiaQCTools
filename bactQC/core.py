@@ -547,7 +547,7 @@ class Genome:
             'min_q30_bases': min_q30_bases,
             'min_coverage': min_coverage
         }
-
+        
         logger.info("Fastp processing complete.")
 
     def overall_qc(self, sample_name):
@@ -567,6 +567,7 @@ class Genome:
 
         Creates a TSV file with the QC results for each sample.
         """
+        
         results_list = []
         for sample_name in self.sample_names:
             sample_results = self.qc_results.get(sample_name, {}).copy()
@@ -593,6 +594,7 @@ class Genome:
         # Ensure all desired columns are present
         existing_columns = [col for col in desired_order if col in results_df.columns]
         results_df = results_df.reindex(columns=existing_columns)
+
 
         # Write the results to file
         results_df.to_csv(f"{output_prefix}.tsv", sep='\t', index=False)
