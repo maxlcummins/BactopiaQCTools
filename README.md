@@ -1,82 +1,100 @@
 # bactQC
 
-![bactQC Logo](https://github.com/maxlcummins/bactQC/blob/main/assets/logo.png?raw=true)
+![bactQC Logo](https://github.com/maxlcummins/bactQC/raw/main/logo.png)
 
-**bactQC** is a command-line tool designed for downstream processing of analysis performed by [Bactopia](https://github.com/bactopia/bactopia).
-
-It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan, and Fastp, to ensure high-quality genomic data for downstream analyses.
-
----
+**bactQC** is a comprehensive command-line tool designed for quality control (QC) of bacterial genome data. It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan, and fastp, to ensure the integrity and quality of your genomic assemblies. Whether you're analyzing a single sample or multiple samples from Bactopia outputs, bactQC provides an efficient and user-friendly interface to streamline your QC workflow.
 
 ## Table of Contents
 
+- [Description](#description)
 - [Features](#features)
 - [Installation](#installation)
-- [Data Preparation](#data-preparation)
+  - [Prerequisites](#prerequisites)
+  - [Installation Steps](#installation-steps)
+  - [Data Preparation](#data-preparation)
 - [Usage](#usage)
-  - [Run All QC Checks](#run-all-qc-checks)
-  - [Individual QC Commands](#individual-qc-commands)
-    - [Get Expected Genome Size](#get-expected-genome-size)
+  - [Run QC Analysis](#run-qc-analysis)
+  - [Check Individual QC Metrics](#check-individual-qc-metrics)
     - [Get Assembly Size](#get-assembly-size)
     - [Check Bracken](#check-bracken)
     - [Check MLST](#check-mlst)
     - [Check CheckM](#check-checkm)
     - [Check Assembly Scan](#check-assembly-scan)
-    - [Check Fastp](#check-fastp)
-- [Command Reference](#command-reference)
+    - [Check FastP](#check-fastp)
+- [Output](#output)
 - [Examples](#examples)
+  - [Running QC Analysis for a Single Sample](#running-qc-analysis-for-a-single-sample)
+  - [Running QC Analysis for All Samples](#running-qc-analysis-for-all-samples)
+  - [Checking Individual QC Metrics](#checking-individual-qc-metrics)
 - [Contributing](#contributing)
 - [License](#license)
 - [Contact](#contact)
 
+## Description
 
+bactQC is a robust tool for performing quality control on bacterial genome assemblies. By leveraging various bioinformatics tools, it provides a comprehensive assessment of genome quality, ensuring reliable downstream analyses. Key functionalities include:
+
+- **Bracken Analysis:** Assess the abundance of primary and secondary species.
+- **MLST Checking:** Validate multi-locus sequence typing results.
+- **CheckM Evaluation:** Evaluate genome completeness and contamination.
+- **Assembly Scan:** Analyze assembly metrics like contig counts and N50.
+- **fastp Assessment:** Examine sequencing quality metrics post-filtering.
 
 ## Features
 
-- **Comprehensive QC Checks**: Integrates Bracken, MLST, CheckM, Assembly Scan, and Fastp for thorough quality assessment.
-- **Flexible Genus Specification**: Determines the sample genus from Bactopia mash outputs or allows manual specification of an expected genus.
-- **Rich Output Formatting**: Utilizes the Rich library for enhanced, visually appealing console outputs.
-- **Error Handling**: Provides clear and informative error messages to guide users.
-- **Modular Design**: Easily extendable to incorporate additional QC checks in the future.
-
-
+- **Automated QC Pipeline:** Run all quality checks with a single command.
+- **Detailed Reporting:** Generates comprehensive TSV reports for results and thresholds.
+- **Rich Console Output:** Enhanced terminal output with tables and emojis for better readability.
+- **Modular Commands:** Execute individual QC checks as needed.
+- **Customizable Thresholds:** Adjust QC parameters to fit specific project requirements.
+- **Species-Specific Analysis:** Tailor QC thresholds based on detected species.
 
 ## Installation
 
 ### Prerequisites
 
-- **Python 3.7 or higher**: Ensure Python is installed. You can download it from the [official website](https://www.python.org/downloads/).
-- **pip**: Python package installer. It usually comes with Python.
+- **Python 3.6 or higher**
+- **pip** package installer
 
-### Clone the Repository
+### Installation Steps
 
-```bash
-# Clone our repo
-git clone https://github.com/maxlcummins/bactQC.git
+1. **Clone the Repository:**
 
-# Enter it
-cd bactQC
-```
+   ```bash
+   git clone https://github.com/maxlcummins/bactQC.git
+   cd bactQC
+   ```
 
-### Install Dependencies
-It's recommended to use a virtual environment to manage dependencies.
+2. **Set Up a Virtual Environment (Optional but Recommended):**
 
-```bash
-# Create a environment with mamba
-mamba create -n bactQC python>=3.6
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
 
-# Activate the environment
-mamba activate bactQC
+3. **Install Dependencies:**
 
-# Install required packages - Ensure you're in the bactQC directory containing setup.py
-pip install .
-```
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-Alternatively, you can install the dependencies manually
+   *If `requirements.txt` is not provided, install dependencies manually:*
 
-```bash
-pip install click rich emoji pandas requests
-```
+   ```bash
+   pip install pandas requests click rich emoji
+   ```
+
+4. **Install bactQC:**
+
+   ```bash
+   pip install .
+   ```
+
+   *Alternatively, you can run the CLI directly without installation:*
+
+   ```bash
+   python bactQC/cli.py
+   ```
 
 ### Data Preparation
 
@@ -91,130 +109,375 @@ bactopia -profile docker --wf bracken --kraken2_db /Users/maxcummins/Documents/R
 
 # Run CheckM module
 bactopia -profile docker --wf checkm --bactopia bactopia
+
+## Usage
+
+bactQC provides a command-line interface (CLI) with multiple commands to perform quality control on bacterial genome data.
+
+### Run QC Analysis
+
+Run all quality control checks for a specific sample or all samples in the input directory.
+
+```bash
+bactQC run [OPTIONS]
+```
+
+**Options:**
+
+- `--sample_name TEXT`  
+  Name of a sample to analyze.  
+  Example: `--sample_name sample1`
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`  
+  Example: `--input_dir /path/to/bactopia`
+
+- `--min_primary_abundance FLOAT`  
+  Minimum required abundance for the primary species.  
+  Default: `0.80`
+
+- `--min_completeness INTEGER`  
+  Minimum required completeness threshold.  
+  Default: `80`
+
+- `--max_contamination INTEGER`  
+  Maximum allowed contamination threshold.  
+  Default: `10`
+
+- `--maximum_contigs INTEGER`  
+  Maximum allowed number of contigs.  
+  Default: `500`
+
+- `--minimum_n50 INTEGER`  
+  Minimum required N50 contig length.  
+  Default: `15000`
+
+- `--min_q30_bases FLOAT`  
+  Minimum required proportion of Q30 bases after filtering.  
+  Default: `0.90`
+
+- `--min_coverage INTEGER`  
+  Minimum required coverage after filtering.  
+  Default: `30`
+
+#### Example
+
+Analyze a specific sample:
+
+```bash
+bactQC run --sample_name sample1 --input_dir /path/to/bactopia
+```
+
+Analyze all samples in the default `bactopia` directory:
+
+```bash
+bactQC run
+```
+
+### Check Individual QC Metrics
+
+bactQC also provides individual commands to perform specific QC checks. This is useful for debugging or when you only need to verify a particular aspect of your data.
+
+#### Get Assembly Size
+
+Retrieve the total contig length from assembler results.
+
+```bash
+bactQC get_assembly_size [OPTIONS]
+```
+
+**Options:**
+
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
+
+**Example:**
+
+```bash
+bactQC get_assembly_size --sample_name sample1
+```
+
+#### Check Bracken
+
+Check Bracken results for a sample.
+
+```bash
+bactQC check_bracken [OPTIONS]
 ```
 
 ###  Usage
 
-There are two approaches to running this tools.
+**Options:**
 
-Firstly, the user can analyse a given sample based on any specific tool by executing a `bactQC` subcommand:
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
 
-```
-bactQC [OPTIONS] COMMAND [ARGS]
-```
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
 
-bactQC commands include `check-assembly-scan`, `check-bracken`, `check-checkm`, `check-fastp`, `check-mlst`, `get-assembly-size`, and `get-expected-genome-size`.
+- `--min_primary_abundance FLOAT`  
+  Minimum required abundance for the primary species.  
+  Default: `0.80`
 
-This will return key columns from the tool of interest as well as whether the genome passed QC for that tool (based on either default QC thresholds or user defined thresholds with the available flags).
+**Example:**
 
-For example, running `check-mlst` will return the following:
-
-```
-$bactQC check-mlst Genome123 /home/username/path/to/bactopia_output_directory
-
-INFO:bactQC.core:Derived expected_genus from genome_size after fetching: Salmonella
-INFO:bactQC.core:Loaded cached scheme_species_map.tab
-INFO:bactQC.core:MLST scheme matches the expected genus schemes.
-              MLST Data              
-              ╷                      
-  Parameter   │ Value                
- ═════════════╪═════════════════════ 
-  Scheme      │ senterica_achtman_2  
-  St          │ 3774                 
-  Allele1     │ aroC(147)            
-  Allele2     │ dnaN(14)             
-  Allele3     │ hemD(21)             
-  Allele4     │ hisD(88)             
-  Allele5     │ purE(6)              
-  Allele6     │ sucA(676)            
-  Allele7     │ thrA(12)             
-  Passed mlst │ True 
-```
-
-Secondly is via the `run` subcommand.This is intended to tell the user if the genome has passed or failed each of the quality control analyses.
-
-This will be printed to the screen along with the quality control thresholds utilised:
-
-```
-$bactQC run Genome123 bactopia_output_directory
-
-🦠🧬 Analysing Bactopia outputs for Genome123
-Checking /home/username/path/to/bactopia_output_directory
-
-❓ Quality Control Thresholds:
-                ╷                                   
-  QC Check      │ Parameters                        
- ═══════════════╪══════════════════════════════════ 
-  Bracken       │ Min primary abundance: 0.8        
-  Mlst          │ Expected genus: Salmonella        
-  Checkm        │ Max contamination: 10             
-                │ Min completeness: 80              
-  Assembly scan │ Maximum contigs: 500              
-                │ Minimum n50: 15000                
-                │ Minimum ungapped length: 4100000  
-                │ Maximum ungapped length: 6000000  
-  Fastp         │ Min q30 bases: 0.9                
-                │ Min coverage: 30                  
-                ╵                                   
-
-📊 Quality Control Results:
-                ╷            
-  QC Check      │  Status    
- ═══════════════╪═══════════ 
-  Bracken       │ Passed ✅  
-  Mlst          │ Passed ✅  
-  Checkm        │ Passed ✅  
-  Assembly scan │ Passed ✅  
-  Fastp         │ Passed ✅  
-                ╵            
-
-💾 Results written to Genome123_qc_results.tsv
-```
-
-### Outputs
-
-By default, it will also write to file a tab-delimited file containing simlar to the following:
-
-|sample   |Detected species (Bracken)|Detected species (Mash)|bracken|mlst|checkm|assembly_scan|fastp|
-|:--------|:-------------------------|:----------------------|:------|:---|:-----|:------------|:----|
-|Genome123|Salmonella enterica       |Salmonella enterica    |True   |True|True  |True         | True|
-
-The columns should be interpreted as follows:
-
-| Column                   | Meaning                                               |
-|:-------------------------|:------------------------------------------------------|
-|Detected species (Bracken)|Which species was detected by Bactopia's run of Bracken|
-|Detected species (Mash)   |Which species was detected by Bactopia's run of Mash   |
-|bracken                   |Whether bracken QC passed                              |
-|mlst                      |Whether mlst QC passed                                 |
-|checkm                    |Whether checkm QC passed                               |
-|assembly_scan             |Whether assembly_scan QC passed                        |
-|fastp                     |Whether fastp QC passed                                |
-
-### Examples
-
-1. Running All QC Checks
 ```bash
-bactQC run Genome_1 /data/genomes/Salmonella --taxid 28901
+bactQC check_bracken --sample_name sample1
 ```
 
-2. Performing MLST Check with Derived Genus
+#### Check MLST
+
+Check MLST results for a sample.
+
 ```bash
-bactQC check-mlst Genome_1 /data/genomes/Salmonella
+bactQC check_mlst [OPTIONS]
 ```
 
-3. Performing MLST Check with Specified Genus
+**Options:**
+
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
+
+**Example:**
+
 ```bash
-bactQC check-mlst Genome_1 /data/genomes/Salmonella --expected_genus Salmonella
+bactQC check_mlst --sample_name sample1
 ```
 
-4. Checking Fastp Quality, specifying minimum q30 score and coverage (defaults are 0.9 and 30)
+#### Check CheckM
+
+Check CheckM results for a sample.
+
 ```bash
-bactQC check-fastp Genome_1 /data/genomes/Salmonella --min_q30_bases 0.95 --min_coverage 40
+bactQC check_checkm [OPTIONS]
 ```
 
-### Contributing
-Contributions are welcome! To contribute to bactQC, please follow these guidelines:
+**Options:**
 
-### License
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
+
+- `--min_completeness INTEGER`  
+  Minimum required completeness threshold.  
+  Default: `80`
+
+- `--max_contamination INTEGER`  
+  Maximum allowed contamination threshold.  
+  Default: `10`
+
+**Example:**
+
+```bash
+bactQC check_checkm --sample_name sample1
+```
+
+#### Check Assembly Scan
+
+Check assembly scan results for a sample.
+
+```bash
+bactQC check_assembly_scan [OPTIONS]
+```
+
+**Options:**
+
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
+
+- `--maximum_contigs INTEGER`  
+  Maximum allowed number of contigs.  
+  Default: `500`
+
+- `--minimum_n50 INTEGER`  
+  Minimum required N50 contig length.  
+  Default: `15000`
+
+**Example:**
+
+```bash
+bactQC check_assembly_scan --sample_name sample1
+```
+
+#### Check FastP
+
+Check fastp quality control data for a sample.
+
+```bash
+bactQC check_fastp [OPTIONS]
+```
+
+**Options:**
+
+- `--sample_name TEXT`  
+  **Required.** Name of a sample to analyze.
+
+- `--input_dir PATH`  
+  Directory containing Bactopia outputs.  
+  Default: `bactopia`
+
+- `--min_q30_bases FLOAT`  
+  Minimum required proportion of Q30 bases after filtering.  
+  Default: `0.90`
+
+- `--min_coverage INTEGER`  
+  Minimum required coverage after filtering.  
+  Default: `30`
+
+**Example:**
+
+```bash
+bactQC check_fastp --sample_name sample1
+```
+
+## Output
+
+bactQC generates two primary output files in TSV (Tab-Separated Values) format for each analyzed sample:
+
+1. **QC Results:**
+   - **Filename:** `<sample_name>_qc_results.tsv` or `BactQC_results.tsv` for multiple samples.
+   - **Contents:** Contains the QC results for each sample, including status (Passed/Failed) for individual checks and detected species information.
+
+2. **QC Thresholds:**
+   - **Filename:** `<sample_name>_qc_thresholds.tsv` or `BactQC_thresholds.tsv` for multiple samples.
+   - **Contents:** Contains the QC thresholds used for each check, which can be species-specific.
+
+Additionally, individual commands display detailed QC metrics in the terminal using Rich tables with colored formatting and emojis for easy interpretation.
+
+## Examples
+
+### Running QC Analysis for a Single Sample
+
+```bash
+bactQC run --sample_name sample1 --input_dir /path/to/bactopia
+```
+
+**Output:**
+
+- Displays ASCII art and a welcome message.
+- Runs all QC checks with specified thresholds.
+- Generates `sample1_qc_results.tsv` and `sample1_qc_thresholds.tsv`.
+- Displays summarized QC thresholds and results in the terminal.
+
+### Running QC Analysis for All Samples
+
+```bash
+bactQC run
+```
+
+**Output:**
+
+- Processes all samples in the default `bactopia` directory.
+- Generates `BactQC_results.tsv` and `BactQC_thresholds.tsv`.
+- Displays summarized QC thresholds and results for all samples in the terminal.
+
+### Checking Individual QC Metrics
+
+Retrieve assembly size for a sample:
+
+```bash
+bactQC get_assembly_size --sample_name sample1
+```
+
+Check Bracken results:
+
+```bash
+bactQC check_bracken --sample_name sample1
+```
+
+Check MLST results:
+
+```bash
+bactQC check_mlst --sample_name sample1
+```
+
+Check CheckM results:
+
+```bash
+bactQC check_checkm --sample_name sample1
+```
+
+Check Assembly Scan results:
+
+```bash
+bactQC check_assembly_scan --sample_name sample1
+```
+
+Check FastP results:
+
+```bash
+bactQC check_fastp --sample_name sample1
+```
+
+## Contributing
+
+Contributions are welcome! To contribute to bactQC, please follow these steps:
+
+1. **Fork the Repository**
+
+   Click the "Fork" button at the top-right corner of the repository page to create a forked copy of the repository.
+
+2. **Clone the Forked Repository**
+
+   ```bash
+   git clone https://github.com/your-username/bactQC.git
+   cd bactQC
+   ```
+
+3. **Create a New Branch**
+
+   ```bash
+   git checkout -b feature/YourFeature
+   ```
+
+4. **Make Your Changes**
+
+   Implement your feature or bug fix. Ensure your code adheres to the project's coding standards.
+
+5. **Commit Your Changes**
+
+   ```bash
+   git commit -m "Add feature: YourFeature"
+   ```
+
+6. **Push to Your Fork**
+
+   ```bash
+   git push origin feature/YourFeature
+   ```
+
+7. **Create a Pull Request**
+
+   Navigate to the original repository and create a pull request from your forked repository.
+
+Please ensure your contributions follow the Code of Conduct and Contributing Guidelines if available.
+
+## License
+
 This project is licensed under the MIT License.
+
+## Contact
+
+For questions, suggestions, or support, please open an issue on GitHub or contact the maintainer:
+
+- **Maintainer:** Max L. Cummins
+- **Email:** [max.l.cummins@gmail.com](mailto:max.l.cummins@gmail.com)
+
+Thank you for using bactQC! 🦠🧬
