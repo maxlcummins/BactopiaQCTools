@@ -446,7 +446,3 @@ Please ensure your contributions follow the Code of Conduct and Contributing Gui
 This project is licensed under the MIT License.
 
 Thank you for using bactQC! 🦠🧬
-
-
-
-
