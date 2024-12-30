@@ -109,6 +109,7 @@ bactopia -profile docker --wf bracken --kraken2_db /Users/maxcummins/Documents/R
 
 # Run CheckM module
 bactopia -profile docker --wf checkm --bactopia bactopia
+```
 
 ## Usage
 
