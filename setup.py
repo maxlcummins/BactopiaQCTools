@@ -1,9 +1,26 @@
 # setup.py
+import os
+import re
 from setuptools import setup, find_packages
+
+# Path to the version.py file
+version_file = os.path.join(os.path.dirname(__file__), 'bactQC', 'version.py')
+
+# Read the version string from version.py without importing the package
+with open(version_file, 'r') as vf:
+    version_content = vf.read()
+
+# Use regex to extract the __version__ variable
+version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", version_content, re.M)
+if version_match:
+    version = version_match.group(1)
+else:
+    raise RuntimeError("Unable to find __version__ string in version.py.")
+
 
 setup(
     name='bactQC',
-    version='0.0.2',
+    version=version,  # Dynamically set the version
     packages=find_packages(),
     author='Max Cummins',
     author_email='max.l.cummins@gmail.com',
