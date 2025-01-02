@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 import json
 import logging
 import re
+from .version import __version__
 
 # Configure logging at the module level
 logging.basicConfig(level=logging.INFO)
@@ -28,6 +29,8 @@ class Genome:
         self.qc_data = {}
         self.qc_results = {}
         self.qc_requirements = {}
+
+        logger.info(f"bactQC version {__version__} initialized.")
 
     def run(self, min_primary_abundance=0.80, min_completeness=80,
             max_contamination=10, maximum_contigs=500, minimum_n50=15000,

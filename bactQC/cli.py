@@ -7,6 +7,10 @@ import os
 from rich.console import Console
 from rich.table import Table
 from rich import box
+from .version import __version__
+
+# Define the tool version
+VERSION = "0.0.4"
 
 # Initialize Rich console
 console = Console()
@@ -25,6 +29,7 @@ ASCII_ART = r"""
 
 
 @click.group()
+@click.version_option(version=__version__, prog_name='bactQC')  # Use centralized version
 def cli():
     """bactQC: A tool for bacterial genome quality control."""
     pass
