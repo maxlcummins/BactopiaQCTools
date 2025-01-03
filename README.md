@@ -1,6 +1,4 @@
-# bactQC
-
-<img src="https://github.com/maxlcummins/bactQC/raw/main/bactQC_banner.png" width="900" height="300" alt="icon">
+![banner](https://github.com/maxlcummins/bactQC/raw/main/bactQC_banner.png)
 
 **bactQC** is a comprehensive command-line tool designed for quality control (QC) of bacterial genome data. It integrates multiple QC checks, including Bracken, MLST, CheckM, Assembly Scan, and fastp, to ensure the integrity and quality of your genomic assemblies. Whether you're analyzing a single sample or multiple samples from Bactopia outputs, bactQC provides an efficient and user-friendly interface to streamline your QC workflow.
 
