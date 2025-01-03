@@ -45,20 +45,21 @@ def cli():
 @click.option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
 @click.option('--min_q30_bases', default=0.90, help='Minimum required proportion of Q30 bases after filtering.')
 @click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
-def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage):
+@click.option('--quiet', is_flag=True, default=False, help='Suppress the display of output tables.')
+def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage, quiet):
     """Run all quality control checks for a sample."""
     
-    # Display ASCII Art
-    console.print(ASCII_ART, style="bright_green bold")
-    
-    # Display Thank You and GitHub link
-    console.print("Thanks for using Bactopia QC tools!", style="bright_green bold")
-    console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactQC/issues", style="bright_green bold")
+    # Display ASCII Art if not quiet
+    if not quiet:
+        console.print(ASCII_ART, style="bright_green bold")
+        console.print("Thanks for using Bactopia QC tools!", style="bright_green bold")
+        console.print("Please report any issues on GitHub: https://github.com/maxlcummins/bactQC/issues", style="bright_green bold")
     
     # Initialize Genome object from core.py
     qc = Genome(sample_name, input_dir)
     try:
-        console.print("Running QC analysis", style="bold green")
+        if not quiet:
+            console.print("Running QC analysis", style="bold green")
         qc.run(
             min_primary_abundance=min_primary_abundance,
             min_completeness=min_completeness,
@@ -87,11 +88,12 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
     abs_input_path = os.path.abspath(input_dir)
     
     # Print target sample and input directory
-    if sample_name:
-        console.print(f"\n🦠🧬 Analysing Bactopia outputs for [bold]{sample_name}[/bold]")
-    else:
-        console.print("\n🦠🧬 Analysing Bactopia outputs for all samples")
-    console.print(f"Checking [bold]{abs_input_path}[/bold]", style="bright_green")
+    if not quiet:
+        if sample_name:
+            console.print(f"\n🦠🧬 Analysing Bactopia outputs for [bold]{sample_name}[/bold]")
+        else:
+            console.print("\n🦠🧬 Analysing Bactopia outputs for all samples")
+        console.print(f"Checking [bold]{abs_input_path}[/bold]", style="bright_green")
     
     # Merge thresholds with results to include 'Detected species (Bracken)'
     if 'sample' in thresholds.columns and 'sample' in results.columns and 'Detected species (Bracken)' in results.columns:
@@ -101,14 +103,17 @@ def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_con
         exit(1)
     
     # Display QC Thresholds in Summarized Wide Format with Species-Specific Columns
-    display_thresholds_summary(merged_thresholds)
+    if not quiet:
+        display_thresholds_summary(merged_thresholds)
     
     # Display QC Results
-    display_qc_results(results)
+    if not quiet:
+        display_qc_results(results)
     
     # Print the results file message correctly
     console.print(f"\n💾 Results written to [cyan]{output_prefix_results}.tsv[/cyan]", style="bold cyan")
     console.print(f"💾 Thresholds written to [cyan]{output_prefix_thresholds}.tsv[/cyan]", style="bold cyan")
+
 
 
 def display_thresholds_summary(thresholds):
