@@ -13,7 +13,6 @@
 - [Usage](#usage)
   - [Run QC Analysis](#run-qc-analysis)
   - [Check Individual QC Metrics](#check-individual-qc-metrics)
-    - [Get Assembly Size](#get-assembly-size)
     - [Check Bracken](#check-bracken)
     - [Check MLST](#check-mlst)
     - [Check CheckM](#check-checkm)
@@ -177,29 +176,6 @@ bactQC run
 ### Check Individual QC Metrics
 
 bactQC also provides individual commands to perform specific QC checks. This is useful for debugging or when you only need to verify a particular aspect of your data.
-
-#### Get Assembly Size
-
-Retrieve the total contig length from assembler results.
-
-```bash
-bactQC get_assembly_size [OPTIONS]
-```
-
-**Options:**
-
-- `--sample_name TEXT`  
-  **Required.** Name of a sample to analyze.
-
-- `--input_dir PATH`  
-  Directory containing Bactopia outputs.  
-  Default: `bactopia`
-
-**Example:**
-
-```bash
-bactQC get_assembly_size --sample_name sample1
-```
 
 #### Check Bracken
 
@@ -388,12 +364,6 @@ bactQC run
 - Displays summarized QC thresholds and results for all samples in the terminal.
 
 ### Checking Individual QC Metrics
-
-Retrieve assembly size for a sample:
-
-```bash
-bactQC get_assembly_size --sample_name sample1
-```
 
 Check Bracken results:
 
