@@ -9,9 +9,6 @@ from rich.table import Table
 from rich import box
 from .version import __version__
 
-# Define the tool version
-VERSION = "0.0.4"
-
 # Initialize Rich console
 console = Console()
 
