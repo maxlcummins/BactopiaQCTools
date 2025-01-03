@@ -177,35 +177,6 @@ def display_thresholds_summary(thresholds):
     
     console.print(thresholds_table)
 
-
-@cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-def get_assembly_size(sample_name, input_dir):
-    """Retrieve total contig length from assembler results."""
-    qc = Genome(sample_name, input_dir)
-    try:
-        qc.get_assembly_size(sample_name)
-        assembly_size = qc.qc_data[sample_name].get('assembly_size', {})
-    except Exception as e:
-        console.print(f"Error retrieving assembly size: {e}", style="bold red")
-        exit(1)
-    
-    if not assembly_size:
-        console.print("No assembly size data available.", style="yellow")
-        return
-    
-    # Create a Rich table for assembly size
-    assembly_table = Table(title="Assembly Size", box=box.MINIMAL_DOUBLE_HEAD)
-    assembly_table.add_column("Parameter", style="bold green")
-    assembly_table.add_column("Value", style="cyan")
-    
-    for key, value in assembly_size.items():
-        assembly_table.add_row(key.replace('_', ' ').title(), str(value))
-    
-    console.print(assembly_table)
-
-
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
 @click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
@@ -500,7 +471,6 @@ def display_qc_results(results):
 
 # Add commands to the CLI group
 cli.add_command(run)
-cli.add_command(get_assembly_size)
 cli.add_command(check_bracken)
 cli.add_command(check_mlst)
 cli.add_command(check_checkm)
