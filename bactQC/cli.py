@@ -36,7 +36,7 @@ def cli():
 @cli.command()
 @click.option('--sample_name', help='Name of a sample to analyze')
 @click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_primary_abundance', default=0.80, help='Minimum required abundance for the primary species.')
+@click.option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
 @click.option('--min_completeness', default=80, help='Minimum required completeness threshold.')
 @click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
 @click.option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
@@ -183,7 +183,7 @@ def display_thresholds_summary(thresholds):
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
 @click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_primary_abundance', default=0.80, help='Minimum required abundance for the primary species.')
+@click.option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
 def check_bracken(sample_name, input_dir, min_primary_abundance):
     """Check Bracken results for a sample."""
     qc = Genome(sample_name, input_dir)

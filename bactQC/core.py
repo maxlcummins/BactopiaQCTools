@@ -55,7 +55,7 @@ class Genome:
 
         logger.info(f"bactQC version {__version__} initialized.")
 
-    def run(self, min_primary_abundance=0.80, min_completeness=80,
+    def run(self, min_primary_abundance=0.60, min_completeness=80,
             max_contamination=10, maximum_contigs=500, minimum_n50=15000,
             min_q30_bases=0.85, min_coverage=30):
         """
@@ -328,7 +328,7 @@ class Genome:
 
         self.qc_data[sample_name]['assembly_size'] = {'total_length': total_length}
 
-    def check_bracken(self, sample_name, min_primary_abundance=0.80):
+    def check_bracken(self, sample_name, min_primary_abundance=0.60):
         """
         Check Bracken results for a given sample.
 
