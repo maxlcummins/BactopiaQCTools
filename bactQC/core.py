@@ -7,7 +7,20 @@ import xml.etree.ElementTree as ET
 import json
 import logging
 import re
+from functools import lru_cache
 from .version import __version__
+from collections import defaultdict
+from typing import Optional
+from threading import Lock
+from glob import glob
+from datetime import datetime
+
+# For faster XML parsing, use lxml if available
+try:
+    from lxml import etree
+    XML_PARSER = 'lxml'
+except ImportError:
+    XML_PARSER = 'etree'
 
 # Configure logging at the module level
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +43,16 @@ class Genome:
         self.qc_results = {}
         self.qc_requirements = {}
 
+        # Initialize a cache for taxid to genome size data
+        self.taxid_cache = {}
+        self.cache_lock = Lock()  # To make cache thread-safe if parallelization is used
+
+        # Initialize a persistent HTTP session
+        self.session = requests.Session()
+
+        # Initialize CheckM data cache
+        self.checkm_data = None  # Will hold the DataFrame after loading
+
         logger.info(f"bactQC version {__version__} initialized.")
 
     def run(self, min_primary_abundance=0.80, min_completeness=80,
@@ -38,6 +61,9 @@ class Genome:
         """
         Run all quality control checks for the sample(s).
         """
+        # Preload CheckM data once before processing samples
+        self._load_checkm_data()
+
         for sample_name in self.sample_names:
             # Initialize data structures for the sample
             self.qc_data[sample_name] = {'sample': sample_name}
@@ -66,9 +92,129 @@ class Genome:
                 logger.error(f"Error processing sample {sample_name}: {e}")
                 self.qc_results[sample_name]['overall'] = False
 
+    def _load_checkm_data(self):
+        """
+        Loads and caches the most recent CheckM data from 'checkm.tsv' files.
+        This method is called once before processing samples to avoid redundant I/O operations.
+        """
+        if self.checkm_data is not None:
+            logger.info("CheckM data already loaded. Using cached data.")
+            return  # Already loaded
+
+        logger.info(f"Searching for CheckM files in {os.path.join(self.input_dir, 'bactopia-runs')}")
+
+        # Use glob to find all 'checkm.tsv' files recursively
+        checkm_pattern = os.path.join(self.input_dir, 'bactopia-runs', '**', 'checkm.tsv')
+        checkm_files = glob(checkm_pattern, recursive=True)
+
+        if not checkm_files:
+            raise ValueError(f"CheckM data not found in any 'checkm.tsv' files within '{os.path.join(self.input_dir, 'bactopia-runs')}'")
+
+        # Determine the most recent checkm.tsv file based on directory timestamp
+        # Assumption: The grandparent directory name contains a timestamp in a sortable format
+        def extract_timestamp(file_path):
+            """
+            Extracts a timestamp from the grandparent directory's name.
+            Assumes the directory name is a timestamp in ISO format or similar.
+            """
+            try:
+                grandparent_dir = os.path.basename(os.path.dirname(os.path.dirname(file_path)))
+                # Attempt to parse the directory name as a date
+                return datetime.strptime(grandparent_dir, '%Y%m%d%H%M%S')
+            except ValueError:
+                # If parsing fails, use the directory name as is for sorting
+                return grandparent_dir
+
+        # Sort the checkm_files based on extracted timestamps
+        checkm_files_sorted = sorted(checkm_files, key=extract_timestamp)
+
+        # Select the most recent checkm.tsv file
+        file_path = checkm_files_sorted[-1]
+        logger.info(f"Loading CheckM data from the most recent file: {file_path}")
+
+        # Read the CheckM TSV file
+        try:
+            checkm_df = pd.read_csv(file_path, sep='\t')
+        except Exception as e:
+            logger.error(f"Error reading CheckM file '{file_path}': {e}")
+            raise
+
+        if 'Bin Id' not in checkm_df.columns:
+            raise ValueError(f"'Bin Id' column not found in CheckM file '{file_path}'")
+
+        # Rename 'Bin Id' to 'sample' for consistency
+        checkm_df.rename(columns={'Bin Id': 'sample'}, inplace=True)
+
+        # Set 'sample' as the index for faster lookups
+        checkm_df.set_index('sample', inplace=True)
+
+        self.checkm_data = checkm_df
+        logger.info("CheckM data loaded and cached successfully.")
+
+    def check_checkm(self, sample_name, min_completeness=80, max_contamination=10):
+        """
+        Checks CheckM results for a given sample and evaluates quality metrics.
+
+        Updates self.qc_data[sample_name]['checkm'] with the results.
+        """
+        if not sample_name:
+            raise ValueError("Sample name is not set. Please provide a sample name.")
+
+        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
+        if sample_name not in self.qc_data:
+            self.qc_data[sample_name] = {'sample': sample_name}
+        if sample_name not in self.qc_results:
+            self.qc_results[sample_name] = {}
+        if sample_name not in self.qc_requirements:
+            self.qc_requirements[sample_name] = {}
+
+        if self.checkm_data is None:
+            # Load CheckM data if not already loaded
+            self._load_checkm_data()
+
+        # Check if the sample exists in the CheckM data
+        if sample_name not in self.checkm_data.index:
+            raise ValueError(f"Sample '{sample_name}' not found in the loaded CheckM data.")
+
+        # Extract the CheckM results for the sample
+        checkm_row = self.checkm_data.loc[sample_name]
+
+        # If there are multiple entries for the sample, handle accordingly
+        if isinstance(checkm_row, pd.DataFrame):
+            # If multiple rows exist for the sample, select the first one or handle as needed
+            checkm_row = checkm_row.iloc[0]
+
+        # Convert the row to a dictionary
+        checkm_result = checkm_row.to_dict()
+
+        # Add requirement thresholds
+        checkm_result['completeness_requirement'] = min_completeness
+        checkm_result['contamination_requirement'] = max_contamination
+
+        # Evaluate quality metrics
+        # Ensure that 'Completeness' and 'Contamination' columns exist
+        if 'Completeness' not in checkm_result or 'Contamination' not in checkm_result:
+            raise ValueError(f"Missing 'Completeness' or 'Contamination' in CheckM data for sample '{sample_name}'.")
+
+        # Compute pass/fail flags
+        checkm_result['passed_completeness'] = checkm_result['Completeness'] > min_completeness
+        checkm_result['passed_contamination'] = checkm_result['Contamination'] < max_contamination
+        checkm_result['passed_checkm_QC'] = checkm_result['passed_completeness'] and checkm_result['passed_contamination']
+
+        # Update qc_data, qc_results, qc_requirements
+        self.qc_data[sample_name]['checkm'] = checkm_result
+        self.qc_results[sample_name]['checkm'] = checkm_result['passed_checkm_QC']
+        self.qc_requirements[sample_name]['checkm'] = {
+            'max_contamination': max_contamination,
+            'min_completeness': min_completeness
+        }
+
+        logger.info(f"CheckM processing complete for sample '{sample_name}'.")
+
     def get_expected_genome_size(self, sample_name):
         """
         Retrieve expected genome size information from the NCBI API based on Bracken results.
+        Optimized with caching and persistent HTTP session.
         """
         if not sample_name:
             raise ValueError("Sample name is not set. Please provide a sample name.")
@@ -88,43 +234,63 @@ class Genome:
         )
         if not os.path.isfile(bracken_path):
             raise FileNotFoundError(f"Bracken abundance file not found at {bracken_path}")
-        bracken_result = pd.read_csv(bracken_path, sep='\t')
+
+        # Read only the necessary column to reduce memory usage
+        try:
+            bracken_result = pd.read_csv(bracken_path, sep='\t', usecols=['taxonomy_id'])
+        except ValueError as e:
+            raise ValueError(f"Bracken abundance file at {bracken_path} is missing 'taxonomy_id' column: {e}")
+
         if bracken_result.empty:
             raise ValueError(f"Bracken abundance file at {bracken_path} is empty.")
+
         taxid = str(bracken_result.iloc[0]['taxonomy_id'])
 
-        base_URL = "https://api.ncbi.nlm.nih.gov/genome/v0/expected_genome_size/expected_genome_size?species_taxid="
-        url = f"{base_URL}{taxid}"
+        # Check if taxid is already cached
+        with self.cache_lock:
+            if taxid in self.taxid_cache:
+                logger.info(f"Using cached genome size data for taxid {taxid}")
+                data = self.taxid_cache[taxid]
+            else:
+                base_URL = "https://api.ncbi.nlm.nih.gov/genome/v0/expected_genome_size/expected_genome_size?species_taxid="
+                url = f"{base_URL}{taxid}"
 
-        # Fetch genome size data
-        try:
-            response = requests.get(url)
-            response.raise_for_status()
-        except requests.RequestException as e:
-            logger.error(f"Error fetching genome size data: {e}")
-            raise
+                # Fetch genome size data using the persistent session
+                try:
+                    response = self.session.get(url, timeout=10)
+                    response.raise_for_status()
+                except requests.RequestException as e:
+                    logger.error(f"Error fetching genome size data for taxid {taxid}: {e}")
+                    raise
 
-        data = {}
-        if response.content:
-            try:
-                root = ET.fromstring(response.content)
-                data = {
-                    'organism_name': root.findtext('organism_name'),
-                    'species_taxid': root.findtext('species_taxid'),
-                    'expected_ungapped_length': int(root.findtext('expected_ungapped_length')),
-                    'minimum_ungapped_length': int(root.findtext('minimum_ungapped_length')),
-                    'maximum_ungapped_length': int(root.findtext('maximum_ungapped_length'))
-                }
-            except ET.ParseError as e:
-                logger.error(f"Error parsing XML for taxid {taxid}: {e}")
-                raise
-        else:
-            logger.warning(f"No content returned for taxid {taxid}")
+                data = {}
+                if response.content:
+                    try:
+                        if XML_PARSER == 'lxml':
+                            root = etree.fromstring(response.content)
+                        else:
+                            root = ET.fromstring(response.content)
+                        data = {
+                            'organism_name': root.findtext('organism_name'),
+                            'species_taxid': root.findtext('species_taxid'),
+                            'expected_ungapped_length': int(root.findtext('expected_ungapped_length')),
+                            'minimum_ungapped_length': int(root.findtext('minimum_ungapped_length')),
+                            'maximum_ungapped_length': int(root.findtext('maximum_ungapped_length'))
+                        }
+                    except (ET.ParseError, etree.XMLSyntaxError) as e:
+                        logger.error(f"Error parsing XML for taxid {taxid}: {e}")
+                        raise
+                else:
+                    logger.warning(f"No content returned for taxid {taxid}")
+                    raise ValueError(f"No content returned for taxid {taxid}")
 
-        if data and data.get('organism_name'):
-            self.qc_data[sample_name]['genome_size'] = data
-        else:
-            raise ValueError(f"Failed to retrieve genome size for taxid {taxid}. 'organism_name' is missing.")
+                if data and data.get('organism_name'):
+                    # Cache the result
+                    self.taxid_cache[taxid] = data
+                else:
+                    raise ValueError(f"Failed to retrieve genome size for taxid {taxid}. 'organism_name' is missing.")
+
+        self.qc_data[sample_name]['genome_size'] = data
 
     def get_assembly_size(self, sample_name):
         """
@@ -329,84 +495,6 @@ class Genome:
 
         logger.info("MLST processing complete.")
 
-    def check_checkm(self, sample_name, min_completeness=80, max_contamination=10):
-        """
-        Checks CheckM results for a given sample and evaluates quality metrics.
-
-        Updates self.qc_data[sample_name]['checkm'] with the results.
-        """
-        if not sample_name:
-            raise ValueError("Sample name is not set. Please provide a sample name.")
-
-        # Initialize qc_data, qc_results, qc_requirements for the sample if not already done
-        if sample_name not in self.qc_data:
-            self.qc_data[sample_name] = {'sample': sample_name}
-        if sample_name not in self.qc_results:
-            self.qc_results[sample_name] = {}
-        if sample_name not in self.qc_requirements:
-            self.qc_requirements[sample_name] = {}
-
-        logger.info(f"Searching for CheckM files in {self.input_dir}/bactopia-runs")
-
-        # Search recursively for all files in the input directory called 'checkm.tsv'
-        checkm_files = []
-        for root, dirs, files in os.walk(os.path.join(self.input_dir, 'bactopia-runs')):
-            for file in files:
-                if file == 'checkm.tsv':
-                    checkm_files.append(os.path.join(root, file))
-
-        # Check that we found at least one checkm.tsv file
-        if len(checkm_files) == 0:
-            raise ValueError(f"CheckM data not found in any 'checkm.tsv' files within '{self.input_dir}'")
-
-        # Determine the most recent checkm.tsv file based on the timestamp name of directory two levels up
-        checkm_files = sorted(checkm_files, key=lambda x: os.path.basename(os.path.dirname(os.path.dirname(x))))
-
-        # Select the most recent checkm.tsv file
-        file_path = checkm_files[-1]
-
-        # Read the file
-        checkm_result = pd.read_csv(file_path, sep='\t')
-
-        # Rename 'Bin Id' to 'sample'
-        checkm_result.rename(columns={'Bin Id': 'sample'}, inplace=True)
-
-        # Check if sample name exists in the checkm file
-        if sample_name not in checkm_result['sample'].values:
-            raise ValueError(f"Sample {sample_name} not found in {file_path}")
-
-        # Filter the dataframe to only the sample of interest
-        checkm_result = checkm_result[checkm_result['sample'] == sample_name]
-
-        # Create a dictionary from the first row after dropping the 'sample' column
-        checkm_result = checkm_result.iloc[0].drop('sample').to_dict()
-
-        # Add an entry with the minimum completeness
-        checkm_result['completeness_requirement'] = min_completeness
-
-        # Add an entry with the maximum contamination
-        checkm_result['contamination_requirement'] = max_contamination
-
-        # Add an entry as a boolean for if the completeness is greater than min_completeness
-        checkm_result['passed_completeness'] = checkm_result['Completeness'] > min_completeness
-
-        # Add an entry as a boolean for if the contamination is less than max_contamination
-        checkm_result['passed_contamination'] = checkm_result['Contamination'] < max_contamination
-
-        # Add an entry as a boolean for if completion and contamination requirements are met
-        checkm_result['passed_checkm_QC'] = checkm_result['passed_completeness'] and checkm_result['passed_contamination']
-
-        self.qc_data[sample_name]['checkm'] = checkm_result
-
-        self.qc_results[sample_name]['checkm'] = checkm_result['passed_checkm_QC']
-
-        self.qc_requirements[sample_name]['checkm'] = {
-            'max_contamination': max_contamination,
-            'min_completeness': min_completeness
-        }
-
-        logger.info("CheckM processing complete.")
-
     def check_assembly_scan(self, sample_name, maximum_contigs=500, minimum_n50=15000):
         """
         Check the quality of assembly scan results for a given sample.
@@ -530,6 +618,12 @@ class Genome:
         # Compute coverage
         coverage = fastp_results['post_filt_total_bases'] / assembly_size['total_length']
 
+        # Ensure coverage is computed correctly and handle potential division by zero
+        try:
+            coverage = fastp_results['post_filt_total_bases'] / assembly_size['total_length']
+        except ZeroDivisionError:
+            coverage = 0
+
         # Add the coverage to the dictionary
         fastp_results['coverage'] = round(coverage, 2)
 
@@ -542,6 +636,11 @@ class Genome:
         # Add a boolean for whether the fastp QC passed
         fastp_results['passed_fastp_QC'] = fastp_results['passed_q30_bases'] and fastp_results['passed_coverage']
 
+        # Ensure all QC results are boolean
+        fastp_results['passed_q30_bases'] = bool(fastp_results['passed_q30_bases'])
+        fastp_results['passed_coverage'] = bool(fastp_results['passed_coverage'])
+        fastp_results['passed_fastp_QC'] = bool(fastp_results['passed_fastp_QC'])
+
         self.qc_data[sample_name]['fastp'] = fastp_results
 
         self.qc_results[sample_name]['fastp'] = fastp_results['passed_fastp_QC']
@@ -550,7 +649,7 @@ class Genome:
             'min_q30_bases': min_q30_bases,
             'min_coverage': min_coverage
         }
-        
+
         logger.info("Fastp processing complete.")
 
     def overall_qc(self, sample_name):
@@ -562,6 +661,10 @@ class Genome:
 
         # Exclude 'sample' key if present
         results_values = [value for key, value in self.qc_results[sample_name].items()]
+
+        # Replace NaN with False
+        results_values = [bool(value) for value in results_values]
+
         self.qc_results[sample_name]['overall'] = all(results_values)
 
     def get_qc_results(self, output_prefix='qc_results'):
@@ -591,9 +694,15 @@ class Genome:
         # Create a DataFrame from the list of dictionaries
         results_df = pd.DataFrame(results_list)
 
+        # Replace NaN with False for boolean QC result columns
+        qc_columns = ['bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp', 'overall']
+        for col in qc_columns:
+            if col in results_df.columns:
+                results_df[col] = results_df[col].fillna(False).astype(bool)
+
         # Reorder columns
         desired_order = ['sample', 'Detected species (Bracken)', 'Detected species (Mash)',
-                         'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp', 'overall']
+                        'bracken', 'mlst', 'checkm', 'assembly_scan', 'fastp', 'overall']
         # Ensure all desired columns are present
         existing_columns = [col for col in desired_order if col in results_df.columns]
         results_df = results_df.reindex(columns=existing_columns)

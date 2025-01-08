@@ -4,6 +4,7 @@ import click
 from .core import Genome
 import emoji
 import os
+import pandas as pd
 from rich.console import Console
 from rich.table import Table
 from rich import box
@@ -431,14 +432,17 @@ def display_qc_results(results):
         row_values = [sample_name]  # Start with sample_name
         for col in data_columns:
             value = row[col]
-            if isinstance(value, bool):
+            if pd.isna(value):
+                status = emoji.emojize(":question: [yellow]N/A[/yellow]")
+            elif isinstance(value, bool):
                 if value:
                     status = emoji.emojize(":check_mark_button: [green]Passed[/green]")
                 else:
                     status = emoji.emojize(":cross_mark: [red]Failed[/red]")
-                row_values.append(status)
             else:
-                row_values.append(str(value))
+                # For non-boolean columns, display the value as is
+                status = str(value)
+            row_values.append(status)
         results_table.add_row(*row_values)
 
     # Now, add a summary row at the end
