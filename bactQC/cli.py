@@ -41,7 +41,7 @@ def cli():
 @click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
 @click.option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
 @click.option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
-@click.option('--min_q30_bases', default=0.90, help='Minimum required proportion of Q30 bases after filtering.')
+@click.option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
 @click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
 @click.option('--quiet', is_flag=True, default=False, help='Suppress the display of output tables.')
 def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage, quiet):
@@ -310,7 +310,7 @@ def check_assembly_scan(sample_name, input_dir, maximum_contigs, minimum_n50):
 @cli.command()
 @click.option('--sample_name', required=True, help='Name of a sample to analyze')
 @click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_q30_bases', default=0.90, help='Minimum required proportion of Q30 bases after filtering.')
+@click.option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
 @click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
 def check_fastp(sample_name, input_dir, min_q30_bases, min_coverage):
     """Check fastp quality control data for a sample."""

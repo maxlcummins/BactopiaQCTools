@@ -57,7 +57,7 @@ class Genome:
 
     def run(self, min_primary_abundance=0.80, min_completeness=80,
             max_contamination=10, maximum_contigs=500, minimum_n50=15000,
-            min_q30_bases=0.90, min_coverage=30):
+            min_q30_bases=0.85, min_coverage=30):
         """
         Run all quality control checks for the sample(s).
         """
@@ -564,7 +564,7 @@ class Genome:
 
         logger.info("Assembly scan processing complete.")
 
-    def check_fastp(self, sample_name, min_q30_bases=0.90, min_coverage=30):
+    def check_fastp(self, sample_name, min_q30_bases=0.85, min_coverage=30):
         """
         Checks fastp quality control data for a given sample.
 
