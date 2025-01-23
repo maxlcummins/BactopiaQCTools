@@ -25,6 +25,11 @@ ASCII_ART = r"""
 
 """
 
+# Add code to show default values for parameters in the help messages
+# Thanks https://stackoverflow.com/questions/57550012/how-to-tell-click-to-always-show-option-defaults
+# Note that it used to be called 'click.option' but now it's 'click_option'
+def click_option(*args, **kwargs):
+    return click.option(*args, show_default=True, **kwargs)
 
 @click.group()
 @click.version_option(version=__version__, prog_name='bactQC')  # Use centralized version
@@ -34,16 +39,16 @@ def cli():
 
 
 @cli.command()
-@click.option('--sample_name', help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
-@click.option('--min_completeness', default=80, help='Minimum required completeness threshold.')
-@click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
-@click.option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
-@click.option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
-@click.option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
-@click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
-@click.option('--quiet', is_flag=True, default=False, help='Suppress the display of output tables.')
+@click_option('--sample_name', help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
+@click_option('--min_completeness', default=80, help='Minimum required completeness threshold.')
+@click_option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
+@click_option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
+@click_option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
+@click_option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
+@click_option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
+@click_option('--quiet', is_flag=True, default=False, help='Suppress the display of output tables.')
 def run(sample_name, input_dir, min_primary_abundance, min_completeness, max_contamination, maximum_contigs, minimum_n50, min_q30_bases, min_coverage, quiet):
     """Run all quality control checks for a sample."""
     
@@ -181,9 +186,9 @@ def display_thresholds_summary(thresholds):
     console.print(thresholds_table)
 
 @cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
+@click_option('--sample_name', required=True, help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--min_primary_abundance', default=0.60, help='Minimum required abundance for the primary species.')
 def check_bracken(sample_name, input_dir, min_primary_abundance):
     """Check Bracken results for a sample."""
     qc = Genome(sample_name, input_dir)
@@ -212,8 +217,8 @@ def check_bracken(sample_name, input_dir, min_primary_abundance):
 
 
 @cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--sample_name', required=True, help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
 def check_mlst(sample_name, input_dir):
     """Check MLST results for a sample."""
     qc = Genome(sample_name, input_dir)
@@ -244,10 +249,10 @@ def check_mlst(sample_name, input_dir):
 
 
 @cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_completeness', default=80, help='Minimum required completeness threshold.')
-@click.option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
+@click_option('--sample_name', required=True, help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--min_completeness', default=80, help='Minimum required completeness threshold.')
+@click_option('--max_contamination', default=10, help='Maximum allowed contamination threshold.')
 def check_checkm(sample_name, input_dir, min_completeness, max_contamination):
     """Check CheckM results for a sample."""
     qc = Genome(sample_name, input_dir)
@@ -276,10 +281,10 @@ def check_checkm(sample_name, input_dir, min_completeness, max_contamination):
 
 
 @cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
-@click.option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
+@click_option('--sample_name', required=True, help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--maximum_contigs', default=500, help='Maximum allowed number of contigs.')
+@click_option('--minimum_n50', default=15000, help='Minimum required N50 contig length.')
 def check_assembly_scan(sample_name, input_dir, maximum_contigs, minimum_n50):
     """Check assembly scan results for a sample."""
     qc = Genome(sample_name, input_dir)
@@ -308,10 +313,10 @@ def check_assembly_scan(sample_name, input_dir, maximum_contigs, minimum_n50):
 
 
 @cli.command()
-@click.option('--sample_name', required=True, help='Name of a sample to analyze')
-@click.option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
-@click.option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
-@click.option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
+@click_option('--sample_name', required=True, help='Name of a sample to analyze')
+@click_option('--input_dir', default='bactopia', type=click.Path(exists=True), help='Directory containing Bactopia outputs.')
+@click_option('--min_q30_bases', default=0.85, help='Minimum required proportion of Q30 bases after filtering.')
+@click_option('--min_coverage', default=30, help='Minimum required coverage after filtering.')
 def check_fastp(sample_name, input_dir, min_q30_bases, min_coverage):
     """Check fastp quality control data for a sample."""
     qc = Genome(sample_name, input_dir)
